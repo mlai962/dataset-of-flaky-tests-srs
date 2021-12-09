@@ -8,24 +8,39 @@ import kong.unirest.json.JSONObject;
 public class searchGitHub {
 	/**
 	 * 
+	 * @param keywordToSearch
 	 */
-	public static void findFlakyness() {
+	public static JSONObject APIcall(String keywordToSearch, String apiURL) {
+		JSONObject jsonObject;
+		
 		kong.unirest.HttpResponse<JsonNode> jsonResponse
-		= Unirest.get("https://api.github.com/search/issues")
+		= Unirest.get("https://api.github.com" + apiURL)
 		.basicAuth("mlai962", "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")
-		.queryString("q", "flaky")
+		.header("accept", "application/vnd.github.v3+json")
+		.queryString("q", keywordToSearch+" language:java")
 		.queryString("page", 1)
 		.queryString("per_page", 100)
 		.asJson();
-
+		
 		System.out.println(jsonResponse.getBody().toPrettyString());
-
-		JSONObject j = jsonResponse.getBody().getObject();
-		JSONArray jsonarray = j.getJSONArray("items");
+		
+		jsonObject = jsonResponse.getBody().getObject();
+		
+		return jsonObject;
+	}
+	
+	/**
+	 * 
+	 */
+	public static void findFlakyness() {
+		JSONObject jsonObject = APIcall("flaky", "/search/issues");
+//		JSONObject jsonObject = APIcall("flaky", "/search/pr");
+		
+		
+		JSONArray jsonarray = jsonObject.getJSONArray("items");
 		for (int i = 0; i < jsonarray.length(); i++) {
 			JSONObject obj = jsonarray.getJSONObject(i);
 			System.out.println(obj.get("repository_url"));
-			System.out.println(obj.get("body"));
 		}
 	}
 }
