@@ -10,6 +10,35 @@ import kong.unirest.json.JSONObject;
 
 public class searchGitHub {
 	/**
+	 * 
+	 */
+	public static String getCommitHashBeforePullRequest(JSONObject currentProject) {
+		String pullRequestURL = currentProject.getJSONObject("pull_request").getString("url");
+		String pullRequestHash
+				= Unirest.get(pullRequestURL)
+				.basicAuth("mlai962", "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")
+				.header("accept", "application/vnd.github.v3+json")
+				.asJson()
+				.getBody()
+				.getObject()
+				.getJSONObject("head")
+				.getString("head");
+		
+		JSONObject pullRequestCommit
+				= Unirest.get(currentProject.getString("repository_url"+"/commits"))
+				.basicAuth("mlai962", "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")
+				.header("accept", "application/vnd.github.v3+json")
+				.queryString("sha", pullRequestHash)
+				.asJson()
+				.getBody()
+				.getObject();
+		
+		String pullRequestParentHash = pullRequestCommit.getJSONObject("parents").getString("sha");
+		
+		return pullRequestParentHash;
+	}
+	
+	/**
 	 * Takes a keyword as input to search for in the GitHub api. 
 	 * Also takes a URL extension as input to search for either 
 	 * issues or pull requests. 
@@ -33,13 +62,18 @@ public class searchGitHub {
 				.asJson();
 			
 			jsonObject = jsonResponse.getBody().getObject();
+			System.out.println(jsonResponse.getBody().toPrettyString());
 			
 			if (jsonObject.length() == 3) {
 				jsonArray = jsonObject.getJSONArray("items");
 				
 				for (int i = 0; i < jsonArray.length(); i++) {
 					JSONObject currentProject = jsonArray.getJSONObject(i);
-					projects.add(new project(currentProject.getString("repository_url"), null,null));
+					
+					String projectURL = currentProject.getString("repository_url");
+					String flakyCommitHash = getCommitHashBeforePullRequest(currentProject);
+					
+					projects.add(new project(projectURL, flakyCommitHash, null));
 				}
 			}
 			
@@ -54,7 +88,6 @@ public class searchGitHub {
 	 */
 	public static void findFlakyness() {
 		List<project> projects = APIcall("flaky", "/search/issues");
-//		JSONObject jsonObject = APIcall("flaky", "/search/pr");
 		
 		for (int i = 0; i < projects.size(); i++) {
 			System.out.println(projects.get(i).getProjectName());
