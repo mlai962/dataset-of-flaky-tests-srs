@@ -19,22 +19,26 @@ public class searchGitHub {
 	 * @return pullRequestParentHash: the hash of the commit containing flakyness
 	 */
 	public static String getCommitHashBeforePullRequest(JSONObject currentProject) {
-		String pullRequestURL = currentProject.getJSONObject("pull_request").getString("url");
+		String pullRequestURL 
+				= currentProject
+				.getJSONObject("pull_request")
+				.getString("url"); // Getting the pull request URL of the current project
+		
 		String pullRequestHash
-				= Unirest.get(pullRequestURL)
+				= Unirest.get(pullRequestURL) // Using the pull request URL from above to find its commit hash
 				.basicAuth("mlai962", "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")
 				.header("accept", "application/vnd.github.v3+json")
 				.asJson()
 				.getBody()
 				.getObject()
 				.getJSONObject("head")
-				.getString("sha");
+				.getString("sha"); // Getting the commit hash
 		
 		JSONArray pullRequestCommit
-				= Unirest.get(currentProject.getString("repository_url")+"/commits")
+				= Unirest.get(currentProject.getString("repository_url")+"/commits") // Search the current repository's commits
 				.basicAuth("mlai962", "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")
 				.header("accept", "application/vnd.github.v3+json")
-				.queryString("sha", pullRequestHash)
+				.queryString("sha", pullRequestHash) // Set the latest commit in the API response to be the PR's commit
 				.asJson()
 				.getBody()
 				.getArray();
@@ -61,9 +65,9 @@ public class searchGitHub {
 	 * @return projects: a list of projects with their URLs, hashes and test IDs
 	 */
 	public static List<project> APIcall(String keywordToSearch) {
+		kong.unirest.HttpResponse<JsonNode> jsonResponse;
 		JSONObject jsonObject;
 		JSONArray jsonArray;
-		kong.unirest.HttpResponse<JsonNode> jsonResponse;
 		List<project> projects = new ArrayList<>();
 		int pageNum = 1;
 		
@@ -72,7 +76,7 @@ public class searchGitHub {
 				= Unirest.get("https://api.github.com/search/issues")
 				.basicAuth("mlai962", "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")
 				.header("accept", "application/vnd.github.v3+json")
-				.queryString("q", keywordToSearch+" language:java")
+				.queryString("q", keywordToSearch + " language:java")
 				.queryString("page", pageNum)
 				.queryString("per_page", 100)
 				.asJson();
@@ -105,14 +109,15 @@ public class searchGitHub {
 	}
 	
 	/**
-	 * 
+	 * Searches GitHub for pull requests and issues that include
+	 * keywords that are related to test flakyness.
 	 */
 	public static void findFlakyness() {
 		List<project> projects = APIcall("flaky");
 		
-		for (int i = 0; i < projects.size(); i++) {
-			System.out.println(projects.get(i).getProjectName());
-			System.out.println(i);
-		}
+//		for (int i = 0; i < projects.size(); i++) {
+//			System.out.println(projects.get(i).getProjectName());
+//			System.out.println(i);
+//		}
 	}
 }
