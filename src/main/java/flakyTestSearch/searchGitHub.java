@@ -2,13 +2,52 @@ package flakyTestSearch;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import kong.unirest.Headers;
 import kong.unirest.JsonNode;
 import kong.unirest.Unirest;
 import kong.unirest.json.JSONArray;
 import kong.unirest.json.JSONObject;
 
 public class searchGitHub {
+	public static String getPullRequestURL (JSONObject currentProject) {
+		return currentProject.getJSONObject("pull_request").getString("url");
+	}
+	
+	/**
+	 * Takes the current project and finds the pull request URL
+	 * and then finds the diff related to that pull request
+	 * and searches it for any name of a test which may or may
+	 * not be the name of the flaky test.
+	 * 
+	 * @param currentProject: a project containing a pull request fixing flakyness
+	 * @return pullRequestTestID: the name a test or null if none are found
+	 */
+	public static String getTestIDPullRequest(JSONObject currentProject) {
+		String pullRequestDiff
+				= Unirest.get(getPullRequestURL(currentProject)) // Using the pull request URL to find its diff
+				.basicAuth("mlai962", "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")
+				.header("Accept", "application/vnd.github.v3.diff") // Getting the diff
+				.asString()
+				.getBody();
+		
+		// Searching the diff for a string that starts with a "/", contains "test"
+		// and ends with "java"
+		Pattern pattern = Pattern.compile("\\/[^\\s]*test[^\\s]*java", Pattern.CASE_INSENSITIVE);
+		Matcher matcher = pattern.matcher(pullRequestDiff);
+		
+		// If the above searching finds a match then return the test ID, otherwise
+		// return nothing
+		if (matcher.find()) {
+			String pullRequestTestID = matcher.group(0);
+			return pullRequestTestID;
+		}
+		
+		return null;
+	}
+	
 	/**
 	 * Takes a project JSON object as input, finds the pull
 	 * request URL in order to find the commit hash of that pull 
@@ -19,13 +58,8 @@ public class searchGitHub {
 	 * @return pullRequestParentHash: the hash of the commit containing flakyness
 	 */
 	public static String getCommitHashBeforePullRequest(JSONObject currentProject) {
-		String pullRequestURL 
-				= currentProject
-				.getJSONObject("pull_request")
-				.getString("url"); // Getting the pull request URL of the current project
-		
 		String pullRequestHash
-				= Unirest.get(pullRequestURL) // Using the pull request URL from above to find its commit hash
+				= Unirest.get(getPullRequestURL(currentProject)) // Using the pull request URL to find its commit hash
 				.basicAuth("mlai962", "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")
 				.header("accept", "application/vnd.github.v3+json")
 				.asJson()
@@ -82,7 +116,6 @@ public class searchGitHub {
 				.asJson();
 			
 			jsonObject = jsonResponse.getBody().getObject();
-//			System.out.println(jsonResponse.getBody().toPrettyString());
 			
 			if (jsonObject.length() == 3) {
 				jsonArray = jsonObject.getJSONArray("items");
@@ -93,8 +126,9 @@ public class searchGitHub {
 					String projectURL = currentProject.getString("repository_url");
 					
 					if (currentProject.has("pull_request")) {
-						String flakyCommitHash = getCommitHashBeforePullRequest(currentProject);
-						projects.add(new project(projectURL, flakyCommitHash, null));
+						String commitHash = getCommitHashBeforePullRequest(currentProject);
+						String testID = getTestIDPullRequest(currentProject);
+						projects.add(new project(projectURL, commitHash, testID));
 					} else {
 						projects.add(new project(projectURL, null, null));
 					}
@@ -115,9 +149,11 @@ public class searchGitHub {
 	public static void findFlakyness() {
 		List<project> projects = APIcall("flaky");
 		
-//		for (int i = 0; i < projects.size(); i++) {
-//			System.out.println(projects.get(i).getProjectName());
-//			System.out.println(i);
-//		}
+		for (int i = 0; i < projects.size(); i++) {
+			System.out.println(i);
+			System.out.println(projects.get(i).getProjectName());
+			System.out.println(projects.get(i).getCommitHash());
+			System.out.println(projects.get(i).getTestID());
+		}
 	}
 }
