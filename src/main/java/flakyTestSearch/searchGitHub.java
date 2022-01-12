@@ -11,7 +11,85 @@ import kong.unirest.Unirest;
 import kong.unirest.json.JSONArray;
 import kong.unirest.json.JSONObject;
 
-public class searchGitHub {
+public class SearchGitHub {
+	public static JSONArray getBranchNames (JSONObject currentProject) {
+		JSONArray branchNames
+				= Unirest.get(currentProject.getString("repository_url")+"/branches")
+				.basicAuth("mlai962", "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")
+				.header("accept", "application/vnd.github.v3+json")
+				.asJson()
+				.getBody()
+				.getArray();
+		
+		return branchNames;
+	}
+	
+	public static String getIssueCreationDate (JSONObject currentProject) {
+		return currentProject.getString("created_at");
+	}
+	
+	public static String searchIssueBranchName(JSONObject currentProject) {
+		JSONArray branchNames = getBranchNames(currentProject);
+		
+		Boolean hasMaster = false;
+		Boolean hasMain = false;
+		
+		for (int i = 0; i < branchNames.length(); i++) {
+			Pattern pattern = Pattern.compile(branchNames.getJSONObject(i).getString("name"), Pattern.LITERAL);
+			Matcher matcher = pattern.matcher(currentProject.getString("title"));
+			
+			if (branchNames.getJSONObject(i).getString("name").equals("master")) {
+				hasMaster = true;
+			}
+			
+			if (branchNames.getJSONObject(i).getString("name").equals("main")) {
+				hasMain = true;
+			}
+			
+			if (matcher.find()) {
+				return matcher.group(0);
+			}
+			
+			if (!currentProject.isNull("name")) {
+				matcher = pattern.matcher(currentProject.getString("body"));
+				
+				if (matcher.find()) {
+					return matcher.group(0);
+				}
+			}
+		}
+		
+		if (hasMaster) {
+			return "master";
+		} else if (hasMain) {
+			return "main";
+		} else {
+			return null;
+		}
+		
+	}
+	
+	public static String getIssueCommitHash (JSONObject currentProject) {
+		JSONArray issueCommits
+				= Unirest.get(currentProject.getString("repository_url")+"/commits")
+				.basicAuth("mlai962", "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")
+				.header("accept", "application/vnd.github.v3+json")
+				.queryString("sha", searchIssueBranchName(currentProject))
+				.queryString("until", getIssueCreationDate(currentProject))
+				.asJson()
+				.getBody()
+				.getArray();
+		
+		String issueParentHash
+				= issueCommits
+				.getJSONObject(0)
+				.getJSONArray("parents")
+				.getJSONObject(0)
+				.getString("sha");
+		
+		return issueParentHash;
+	}
+	
 	public static String getPullRequestURL (JSONObject currentProject) {
 		return currentProject.getJSONObject("pull_request").getString("url");
 	}
@@ -25,7 +103,7 @@ public class searchGitHub {
 	 * @param currentProject: a project containing a pull request fixing flakyness
 	 * @return pullRequestTestID: the name a test or null if none are found
 	 */
-	public static String getTestIDPullRequest(JSONObject currentProject) {
+	public static String getPullRequestTestID(JSONObject currentProject) {
 		String pullRequestDiff
 				= Unirest.get(getPullRequestURL(currentProject)) // Using the pull request URL to find its diff
 				.basicAuth("mlai962", "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")
@@ -57,7 +135,7 @@ public class searchGitHub {
 	 * @param currentProject: a project containing a pull request fixing flakyness
 	 * @return pullRequestParentHash: the hash of the commit containing flakyness
 	 */
-	public static String getCommitHashBeforePullRequest(JSONObject currentProject) {
+	public static String getPullRequestCommitHash(JSONObject currentProject) {
 		String pullRequestHash
 				= Unirest.get(getPullRequestURL(currentProject)) // Using the pull request URL to find its commit hash
 				.basicAuth("mlai962", "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")
@@ -98,11 +176,11 @@ public class searchGitHub {
 	 * @param keywordToSearch: the keyword we are searching GitHub for
 	 * @return projects: a list of projects with their URLs, hashes and test IDs
 	 */
-	public static List<project> APIcall(String keywordToSearch) {
+	public static List<Project> APIcall(String keywordToSearch) {
 		kong.unirest.HttpResponse<JsonNode> jsonResponse;
 		JSONObject jsonObject;
 		JSONArray jsonArray;
-		List<project> projects = new ArrayList<>();
+		List<Project> projects = new ArrayList<>();
 		int pageNum = 1;
 		
 		do {
@@ -126,17 +204,20 @@ public class searchGitHub {
 					String projectURL = currentProject.getString("repository_url");
 					
 					if (currentProject.has("pull_request")) {
-						String commitHash = getCommitHashBeforePullRequest(currentProject);
-						String testID = getTestIDPullRequest(currentProject);
-						projects.add(new project(projectURL, commitHash, testID));
+//						String commitHash = getPullRequestCommitHash(currentProject);
+//						String testID = getPullRequestTestID(currentProject);
+//						projects.add(new Project(projectURL, commitHash, testID));
 					} else {
-						projects.add(new project(projectURL, null, null));
+						String commitHash = getIssueCommitHash(currentProject);
+						projects.add(new Project(projectURL, commitHash, null));
 					}
 					
 				}
 			}
 			
 			pageNum++;
+			
+			break;
 		} while (jsonResponse.getStatus() == 200);
 		
 		return projects;
@@ -147,13 +228,6 @@ public class searchGitHub {
 	 * keywords that are related to test flakyness.
 	 */
 	public static void findFlakyness() {
-		List<project> projects = APIcall("flaky");
-		
-		for (int i = 0; i < projects.size(); i++) {
-			System.out.println(i);
-			System.out.println(projects.get(i).getProjectName());
-			System.out.println(projects.get(i).getCommitHash());
-			System.out.println(projects.get(i).getTestID());
-		}
+		List<Project> projects = APIcall("flaky");
 	}
 }

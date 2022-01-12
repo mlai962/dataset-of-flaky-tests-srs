@@ -1,11 +1,11 @@
 package flakyTestSearch;
 
-public class project {
+public class Project {
 	private String projectName;
 	private String commitHash;
 	private String testID;
 	
-	public project(String projectName, String commitHash, String testID) {
+	public Project(String projectName, String commitHash, String testID) {
 		this.projectName = projectName;
 		this.commitHash = commitHash;
 		this.testID = testID;
