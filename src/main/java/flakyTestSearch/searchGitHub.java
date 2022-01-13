@@ -1,27 +1,42 @@
 package flakyTestSearch;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import kong.unirest.Headers;
+import kong.unirest.HttpResponse;
 import kong.unirest.JsonNode;
 import kong.unirest.Unirest;
 import kong.unirest.json.JSONArray;
 import kong.unirest.json.JSONObject;
 
 public class SearchGitHub {
-	public static JSONArray getBranchNames (JSONObject currentProject) {
-		JSONArray branchNames
-				= Unirest.get(currentProject.getString("repository_url")+"/branches")
+	public static HttpResponse<JsonNode> apiCall (String apiURL) {
+		HttpResponse<JsonNode> responseBody
+				=Unirest.get(apiURL)
 				.basicAuth("mlai962", "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")
 				.header("accept", "application/vnd.github.v3+json")
-				.asJson()
-				.getBody()
-				.getArray();
+				.asJson();
 		
-		return branchNames;
+		return responseBody;
+	}
+	
+	public static HttpResponse<JsonNode> apiCall (String apiURL, Map<String, Object> queryMap) {
+		HttpResponse<JsonNode> responseBody
+				=Unirest.get(apiURL)
+				.basicAuth("mlai962", "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")
+				.header("accept", "application/vnd.github.v3+json")
+				.queryString(queryMap)
+				.asJson();
+		
+		return responseBody;
+	}
+	
+	public static JSONArray getBranchNames (JSONObject currentProject) {
+		return apiCall(currentProject.getString("repository_url")+"/branches").getBody().getArray();
 	}
 	
 	public static String getIssueCreationDate (JSONObject currentProject) {
@@ -70,24 +85,28 @@ public class SearchGitHub {
 	}
 	
 	public static String getIssueCommitHash (JSONObject currentProject) {
+		HashMap<String, Object> queryMap = new HashMap<>();
+		queryMap.put("sha", searchIssueBranchName(currentProject));
+		queryMap.put("until", getIssueCreationDate(currentProject));
+		
 		JSONArray issueCommits
-				= Unirest.get(currentProject.getString("repository_url")+"/commits")
-				.basicAuth("mlai962", "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")
-				.header("accept", "application/vnd.github.v3+json")
-				.queryString("sha", searchIssueBranchName(currentProject))
-				.queryString("until", getIssueCreationDate(currentProject))
-				.asJson()
-				.getBody()
-				.getArray();
+				= apiCall(currentProject.getString("repository_url")+"/commits", queryMap).getBody().getArray();
 		
-		String issueParentHash
-				= issueCommits
-				.getJSONObject(0)
-				.getJSONArray("parents")
-				.getJSONObject(0)
-				.getString("sha");
+		System.out.println(currentProject);
+		System.out.println(issueCommits);
 		
-		return issueParentHash;
+		if (!issueCommits.isEmpty()) {
+			String issueParentHash
+					= issueCommits
+					.getJSONObject(0)
+					.getJSONArray("parents")
+					.getJSONObject(0)
+					.getString("sha");
+			
+			return issueParentHash;
+		}
+		
+		return null;
 	}
 	
 	public static String getPullRequestURL (JSONObject currentProject) {
@@ -136,24 +155,19 @@ public class SearchGitHub {
 	 * @return pullRequestParentHash: the hash of the commit containing flakyness
 	 */
 	public static String getPullRequestCommitHash(JSONObject currentProject) {
+		// Using the pull request URL to find its commit hash
 		String pullRequestHash
-				= Unirest.get(getPullRequestURL(currentProject)) // Using the pull request URL to find its commit hash
-				.basicAuth("mlai962", "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")
-				.header("accept", "application/vnd.github.v3+json")
-				.asJson()
-				.getBody()
-				.getObject()
+				= apiCall(getPullRequestURL(currentProject)).getBody().getObject()
 				.getJSONObject("head")
 				.getString("sha"); // Getting the commit hash
 		
+		// Set the latest commit in the API response to be the PR's commit
+		HashMap<String, Object> queryMap = new HashMap<>();
+		queryMap.put("sha", pullRequestHash);
+		
+		// Search the current repository's commits
 		JSONArray pullRequestCommit
-				= Unirest.get(currentProject.getString("repository_url")+"/commits") // Search the current repository's commits
-				.basicAuth("mlai962", "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")
-				.header("accept", "application/vnd.github.v3+json")
-				.queryString("sha", pullRequestHash) // Set the latest commit in the API response to be the PR's commit
-				.asJson()
-				.getBody()
-				.getArray();
+				= apiCall(currentProject.getString("repository_url")+"/commits", queryMap).getBody().getArray();
 		
 		String pullRequestParentHash
 				= pullRequestCommit // The commit API call response is a JSON array
@@ -176,22 +190,23 @@ public class SearchGitHub {
 	 * @param keywordToSearch: the keyword we are searching GitHub for
 	 * @return projects: a list of projects with their URLs, hashes and test IDs
 	 */
-	public static List<Project> APIcall(String keywordToSearch) {
-		kong.unirest.HttpResponse<JsonNode> jsonResponse;
+	public static List<Project> getProjects(String keywordToSearch) {
+		HttpResponse<JsonNode> jsonResponse;
 		JSONObject jsonObject;
 		JSONArray jsonArray;
 		List<Project> projects = new ArrayList<>();
 		int pageNum = 1;
 		
 		do {
+			HashMap<String, Object> queryMap = new HashMap<>();
+			queryMap.put("q", keywordToSearch + " language:java");
+			queryMap.put("page", pageNum);
+			queryMap.put("per_page", 100);
+			
 			jsonResponse
-				= Unirest.get("https://api.github.com/search/issues")
-				.basicAuth("mlai962", "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")
-				.header("accept", "application/vnd.github.v3+json")
-				.queryString("q", keywordToSearch + " language:java")
-				.queryString("page", pageNum)
-				.queryString("per_page", 100)
-				.asJson();
+				= apiCall("https://api.github.com/search/issues", queryMap);
+			
+//			System.out.println(jsonResponse.getBody().toPrettyString());
 			
 			jsonObject = jsonResponse.getBody().getObject();
 			
@@ -211,13 +226,10 @@ public class SearchGitHub {
 						String commitHash = getIssueCommitHash(currentProject);
 						projects.add(new Project(projectURL, commitHash, null));
 					}
-					
 				}
 			}
 			
 			pageNum++;
-			
-			break;
 		} while (jsonResponse.getStatus() == 200);
 		
 		return projects;
@@ -228,6 +240,8 @@ public class SearchGitHub {
 	 * keywords that are related to test flakyness.
 	 */
 	public static void findFlakyness() {
-		List<Project> projects = APIcall("flaky");
+		List<Project> projects = getProjects("flaky");
+		
+		System.out.println(projects);
 	}
 }
