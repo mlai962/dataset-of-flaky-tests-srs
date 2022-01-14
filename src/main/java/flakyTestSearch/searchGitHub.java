@@ -205,7 +205,7 @@ public class SearchGitHub {
 	 * 
 	 * @return projects: a list of projects with their URLs, hashes and test IDs
 	 */
-	public static List<Project> getProjectList() {
+	public static List<Project> getProjectList(String keyword) {
 		HttpResponse<JsonNode> jsonResponse;
 		JSONObject jsonObject;
 		JSONArray jsonArray;
@@ -213,11 +213,12 @@ public class SearchGitHub {
 		int pageNum = 1;
 		
 		do {
-			jsonResponse = searchKeyword("flaky", pageNum);
+			jsonResponse = searchKeyword(keyword, pageNum);
 			
 			jsonObject = jsonResponse.getBody().getObject();
 			
-			//System.out.println(jsonResponse.getBody().toPrettyString());
+			System.out.println(jsonResponse.getHeaders().toString());
+			System.out.println(jsonResponse.getBody().toPrettyString());
 
 			if (jsonObject.length() == 3) {
 				jsonArray = jsonObject.getJSONArray("items");
