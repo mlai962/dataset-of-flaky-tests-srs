@@ -43,10 +43,7 @@ public class SearchGitHub {
 		return currentProject.getString("created_at");
 	}
 	
-	public static String searchIssueBranchName(JSONObject currentProject) {
-		JSONArray branchNames = getBranchNames(currentProject);
-		
-		Boolean hasMaster = false;
+	public static String searchIssueBranchName(JSONObject currentProject, JSONArray branchNames) {Boolean hasMaster = false;
 		Boolean hasMain = false;
 		
 		for (int i = 0; i < branchNames.length(); i++) {
@@ -55,9 +52,7 @@ public class SearchGitHub {
 			
 			if (branchNames.getJSONObject(i).getString("name").equals("master")) {
 				hasMaster = true;
-			}
-			
-			if (branchNames.getJSONObject(i).getString("name").equals("main")) {
+			} else if (branchNames.getJSONObject(i).getString("name").equals("main")) {
 				hasMain = true;
 			}
 			
@@ -84,16 +79,13 @@ public class SearchGitHub {
 		
 	}
 	
-	public static String getIssueCommitHash (JSONObject currentProject) {
+	public static String getIssueCommitHash (JSONObject currentProject, JSONArray branchNames) {
 		HashMap<String, Object> queryMap = new HashMap<>();
-		queryMap.put("sha", searchIssueBranchName(currentProject));
+		queryMap.put("sha", searchIssueBranchName(currentProject, branchNames));
 		queryMap.put("until", getIssueCreationDate(currentProject));
 		
 		JSONArray issueCommits
 				= apiCall(currentProject.getString("repository_url")+"/commits", queryMap).getBody().getArray();
-		
-		System.out.println(currentProject);
-		System.out.println(issueCommits);
 		
 		if (!issueCommits.isEmpty()) {
 			String issueParentHash
@@ -113,6 +105,17 @@ public class SearchGitHub {
 		return currentProject.getJSONObject("pull_request").getString("url");
 	}
 	
+	public static String getPullRequestDiff (JSONObject currentProject) {
+		String pullRequestDiff
+				= Unirest.get(getPullRequestURL(currentProject)) // Using the pull request URL to find its diff
+				.basicAuth("mlai962", "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")
+				.header("Accept", "application/vnd.github.v3.diff") // Getting the diff
+				.asString()
+				.getBody();
+		
+		return pullRequestDiff;
+	}
+	
 	/**
 	 * Takes the current project and finds the pull request URL
 	 * and then finds the diff related to that pull request
@@ -122,14 +125,7 @@ public class SearchGitHub {
 	 * @param currentProject: a project containing a pull request fixing flakyness
 	 * @return pullRequestTestID: the name a test or null if none are found
 	 */
-	public static String getPullRequestTestID(JSONObject currentProject) {
-		String pullRequestDiff
-				= Unirest.get(getPullRequestURL(currentProject)) // Using the pull request URL to find its diff
-				.basicAuth("mlai962", "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")
-				.header("Accept", "application/vnd.github.v3.diff") // Getting the diff
-				.asString()
-				.getBody();
-		
+	public static String getPullRequestTestID(JSONObject currentProject, String pullRequestDiff) {
 		// Searching the diff for a string that starts with a "/", contains "test"
 		// and ends with "java"
 		Pattern pattern = Pattern.compile("\\/[^\\s]*test[^\\s]*java", Pattern.CASE_INSENSITIVE);
@@ -145,6 +141,16 @@ public class SearchGitHub {
 		return null;
 	}
 	
+	public static String getPullRequestCommitHash(JSONObject currentProject) {
+		// Using the pull request URL to find its commit hash
+		String pullRequestHash
+				= apiCall(getPullRequestURL(currentProject)).getBody().getObject()
+				.getJSONObject("head")
+				.getString("sha"); // Getting the commit hash
+
+		return pullRequestHash;
+	}
+	
 	/**
 	 * Takes a project JSON object as input, finds the pull
 	 * request URL in order to find the commit hash of that pull 
@@ -154,13 +160,7 @@ public class SearchGitHub {
 	 * @param currentProject: a project containing a pull request fixing flakyness
 	 * @return pullRequestParentHash: the hash of the commit containing flakyness
 	 */
-	public static String getPullRequestCommitHash(JSONObject currentProject) {
-		// Using the pull request URL to find its commit hash
-		String pullRequestHash
-				= apiCall(getPullRequestURL(currentProject)).getBody().getObject()
-				.getJSONObject("head")
-				.getString("sha"); // Getting the commit hash
-		
+	public static String getPullRequestParentCommitHash(JSONObject currentProject, String pullRequestHash) {
 		// Set the latest commit in the API response to be the PR's commit
 		HashMap<String, Object> queryMap = new HashMap<>();
 		queryMap.put("sha", pullRequestHash);
@@ -180,17 +180,32 @@ public class SearchGitHub {
 	}
 	
 	/**
-	 * Takes a keyword as input to search for in the GitHub API. 
-	 * Searches through the maximum available pages of results. 
-	 * Gets the project URL, hash of the commit containing the
-	 * flaky test, and the test id, takes all three of these
-	 * and stores them in a project object, then adds each
-	 * object to a list and returns this list.
+	 * Searches GitHub for the input keyword and returns the 
+	 * response in JSON format
 	 * 
 	 * @param keywordToSearch: the keyword we are searching GitHub for
+	 * @param pageNum: the page number of results to return
+	 * @return jsonResponse: the API response in JSON format
+	 */
+	public static HttpResponse<JsonNode> searchKeyword(String keyword, int pageNum) {
+		HashMap<String, Object> queryMap = new HashMap<>();
+		queryMap.put("q", keyword + " language:java");
+		queryMap.put("page", pageNum);
+		queryMap.put("per_page", 100);
+
+		HttpResponse<JsonNode> jsonResponse = apiCall("https://api.github.com/search/issues", queryMap);
+		
+		return jsonResponse;
+	}
+	
+	/**
+	 * Calls all the relevant methods to get a list of projects
+	 * from GitHub that have issues or pull requests related to
+	 * test flakyness.
+	 * 
 	 * @return projects: a list of projects with their URLs, hashes and test IDs
 	 */
-	public static List<Project> getProjects(String keywordToSearch) {
+	public static List<Project> getProjectList() {
 		HttpResponse<JsonNode> jsonResponse;
 		JSONObject jsonObject;
 		JSONArray jsonArray;
@@ -198,32 +213,35 @@ public class SearchGitHub {
 		int pageNum = 1;
 		
 		do {
-			HashMap<String, Object> queryMap = new HashMap<>();
-			queryMap.put("q", keywordToSearch + " language:java");
-			queryMap.put("page", pageNum);
-			queryMap.put("per_page", 100);
-			
-			jsonResponse
-				= apiCall("https://api.github.com/search/issues", queryMap);
-			
-//			System.out.println(jsonResponse.getBody().toPrettyString());
+			jsonResponse = searchKeyword("flaky", pageNum);
 			
 			jsonObject = jsonResponse.getBody().getObject();
 			
+			//System.out.println(jsonResponse.getBody().toPrettyString());
+
 			if (jsonObject.length() == 3) {
 				jsonArray = jsonObject.getJSONArray("items");
-				
+
 				for (int i = 0; i < jsonArray.length(); i++) {
 					JSONObject currentProject = jsonArray.getJSONObject(i);
-					
+
 					String projectURL = currentProject.getString("repository_url");
-					
+
 					if (currentProject.has("pull_request")) {
-//						String commitHash = getPullRequestCommitHash(currentProject);
-//						String testID = getPullRequestTestID(currentProject);
-//						projects.add(new Project(projectURL, commitHash, testID));
+						String pullRequestHash = getPullRequestCommitHash(currentProject);
+						
+						String commitHash = getPullRequestParentCommitHash(currentProject, pullRequestHash);
+						
+						String pullRequestDiff = getPullRequestDiff(currentProject);
+						
+						String testID = getPullRequestTestID(currentProject, pullRequestDiff);
+						
+						projects.add(new Project(projectURL, commitHash, testID));
 					} else {
-						String commitHash = getIssueCommitHash(currentProject);
+						JSONArray branchNames = getBranchNames(currentProject);
+						
+						String commitHash = getIssueCommitHash(currentProject, branchNames);
+						
 						projects.add(new Project(projectURL, commitHash, null));
 					}
 				}
@@ -233,15 +251,5 @@ public class SearchGitHub {
 		} while (jsonResponse.getStatus() == 200);
 		
 		return projects;
-	}
-	
-	/**
-	 * Searches GitHub for pull requests and issues that include
-	 * keywords that are related to test flakyness.
-	 */
-	public static void findFlakyness() {
-		List<Project> projects = getProjects("flaky");
-		
-		System.out.println(projects);
 	}
 }
