@@ -128,13 +128,16 @@ public class SearchGitHub {
 	public static String getPullRequestTestID(JSONObject currentProject, String pullRequestDiff) {
 		// Searching the diff for a string that starts with a "/", contains "test"
 		// and ends with "java"
-		Pattern pattern = Pattern.compile("\\/[^\\s]*test[^\\s]*java", Pattern.CASE_INSENSITIVE);
+		Pattern pattern = Pattern.compile("[A-Z]\\/[^\\s]*test[^\\s]*java", Pattern.CASE_INSENSITIVE);
 		Matcher matcher = pattern.matcher(pullRequestDiff);
 		
 		// If the above searching finds a match then return the test ID, otherwise
 		// return nothing
 		if (matcher.find()) {
 			String pullRequestTestID = matcher.group(0);
+			
+			System.out.println(pullRequestTestID);
+			
 			return pullRequestTestID;
 		}
 		
@@ -217,8 +220,8 @@ public class SearchGitHub {
 			
 			jsonObject = jsonResponse.getBody().getObject();
 			
-			System.out.println(jsonResponse.getHeaders().toString());
-			System.out.println(jsonResponse.getBody().toPrettyString());
+//			System.out.println(jsonResponse.getHeaders().toString());
+//			System.out.println(jsonResponse.getBody().toPrettyString());
 
 			if (jsonObject.length() == 3) {
 				jsonArray = jsonObject.getJSONArray("items");
