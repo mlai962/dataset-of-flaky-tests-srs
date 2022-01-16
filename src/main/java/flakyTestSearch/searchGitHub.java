@@ -43,7 +43,8 @@ public class SearchGitHub {
 		return currentProject.getString("created_at");
 	}
 	
-	public static String searchIssueBranchName(JSONObject currentProject, JSONArray branchNames) {Boolean hasMaster = false;
+	public static String searchIssueBranchName(JSONObject currentProject, JSONArray branchNames) {
+		Boolean hasMaster = false;
 		Boolean hasMain = false;
 		
 		for (int i = 0; i < branchNames.length(); i++) {
@@ -88,14 +89,12 @@ public class SearchGitHub {
 				= apiCall(currentProject.getString("repository_url")+"/commits", queryMap).getBody().getArray();
 		
 		if (!issueCommits.isEmpty()) {
-			String issueParentHash
+			String issueHash
 					= issueCommits
-					.getJSONObject(0)
-					.getJSONArray("parents")
 					.getJSONObject(0)
 					.getString("sha");
 			
-			return issueParentHash;
+			return issueHash;
 		}
 		
 		return null;
@@ -125,7 +124,7 @@ public class SearchGitHub {
 	 * @param currentProject: a project containing a pull request fixing flakyness
 	 * @return pullRequestTestID: the name a test or null if none are found
 	 */
-	public static String getPullRequestTestID(JSONObject currentProject, String pullRequestDiff) {
+	public static String getPullRequestTestClass(JSONObject currentProject, String pullRequestDiff) {
 		// Searching the diff for a string that starts with a "/", contains "test"
 		// and ends with "java"
 		Pattern pattern = Pattern.compile("[A-Z]\\/[^\\s]*test[^\\s]*java", Pattern.CASE_INSENSITIVE);
@@ -134,11 +133,9 @@ public class SearchGitHub {
 		// If the above searching finds a match then return the test ID, otherwise
 		// return nothing
 		if (matcher.find()) {
-			String pullRequestTestID = matcher.group(0);
+			String pullRequestTestClass = matcher.group(0);
 			
-			System.out.println(pullRequestTestID);
-			
-			return pullRequestTestID;
+			return pullRequestTestClass;
 		}
 		
 		return null;
@@ -220,8 +217,8 @@ public class SearchGitHub {
 			
 			jsonObject = jsonResponse.getBody().getObject();
 			
-//			System.out.println(jsonResponse.getHeaders().toString());
-//			System.out.println(jsonResponse.getBody().toPrettyString());
+			System.out.println(jsonResponse.getHeaders().toString());
+			System.out.println(jsonResponse.getBody().toPrettyString());
 
 			if (jsonObject.length() == 3) {
 				jsonArray = jsonObject.getJSONArray("items");
@@ -238,15 +235,15 @@ public class SearchGitHub {
 						
 						String pullRequestDiff = getPullRequestDiff(currentProject);
 						
-						String testID = getPullRequestTestID(currentProject, pullRequestDiff);
+						String testClass = getPullRequestTestClass(currentProject, pullRequestDiff);
 						
-						projects.add(new Project(projectURL, commitHash, testID));
+						projects.add(new Project(projectURL, commitHash, testClass, null));
 					} else {
 						JSONArray branchNames = getBranchNames(currentProject);
 						
 						String commitHash = getIssueCommitHash(currentProject, branchNames);
 						
-						projects.add(new Project(projectURL, commitHash, null));
+						projects.add(new Project(projectURL, commitHash, null, null));
 					}
 				}
 			}
