@@ -127,7 +127,7 @@ public class SearchGitHub {
 	public static String getPullRequestTestClass(JSONObject currentProject, String pullRequestDiff) {
 		// Searching the diff for a string that starts with a "/", contains "test"
 		// and ends with "java"
-		Pattern pattern = Pattern.compile("[A-Z]\\/[^\\s]*test[^\\s]*java", Pattern.CASE_INSENSITIVE);
+		Pattern pattern = Pattern.compile("\\/[^\\s]*test[^\\s]*java", Pattern.CASE_INSENSITIVE);
 		Matcher matcher = pattern.matcher(pullRequestDiff);
 		
 		// If the above searching finds a match then return the test ID, otherwise
@@ -179,6 +179,21 @@ public class SearchGitHub {
 		return pullRequestParentHash;
 	}
 	
+	public static ArrayList<String> getDiffChangedLines(String pullRequestDiff) {
+		ArrayList<String> changedLines = new ArrayList<>();
+		
+		Pattern pattern = Pattern.compile("@@\\s-[0-9]+,");
+		Matcher matcher = pattern.matcher(pullRequestDiff);
+		
+		while(matcher.find()) {
+			if (!matcher.group().equals("")) {
+				changedLines.add(matcher.group().replace("@@ ", "").replace("-", "").replace(",", ""));
+			}
+		}
+		
+		return changedLines;
+	}
+	
 	/**
 	 * Searches GitHub for the input keyword and returns the 
 	 * response in JSON format
@@ -217,8 +232,8 @@ public class SearchGitHub {
 			
 			jsonObject = jsonResponse.getBody().getObject();
 			
-			System.out.println(jsonResponse.getHeaders().toString());
-			System.out.println(jsonResponse.getBody().toPrettyString());
+//			System.out.println(jsonResponse.getHeaders().toString());
+//			System.out.println(jsonResponse.getBody().toPrettyString());
 
 			if (jsonObject.length() == 3) {
 				jsonArray = jsonObject.getJSONArray("items");
@@ -235,14 +250,34 @@ public class SearchGitHub {
 						
 						String pullRequestDiff = getPullRequestDiff(currentProject);
 						
+						System.out.println(pullRequestHash);
+						System.out.println(pullRequestDiff);
+
 						String testClass = getPullRequestTestClass(currentProject, pullRequestDiff);
 						
-						projects.add(new Project(projectURL, commitHash, testClass, null));
+
+						if (!(testClass == null)) {
+							ArrayList<String> changedLines = getDiffChangedLines(pullRequestDiff);
+							
+							Project project = new Project(projectURL, commitHash, testClass, null);
+							Boolean isCloned = RepoUtil.cloneRepo(project);
+							
+							if (isCloned) {
+								Boolean isClass = RepoUtil.checkClassExists(project);
+								
+								System.out.println(isCloned + " cloned");
+								System.out.println(isClass + " class");
+								
+								if (isClass) {
+									projects.add(project);
+								}
+							}
+						}
 					} else {
 						JSONArray branchNames = getBranchNames(currentProject);
-						
+
 						String commitHash = getIssueCommitHash(currentProject, branchNames);
-						
+
 						projects.add(new Project(projectURL, commitHash, null, null));
 					}
 				}
