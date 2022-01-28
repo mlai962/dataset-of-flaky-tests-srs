@@ -179,19 +179,25 @@ public class SearchGitHub {
 		return pullRequestParentHash;
 	}
 	
-	public static ArrayList<String> getDiffChangedLines(String pullRequestDiff) {
-		ArrayList<String> changedLines = new ArrayList<>();
+	public static String getDiffChangedLine(String pullRequestDiff, String testClass) {
+		String lineNum = null;
 		
-		Pattern pattern = Pattern.compile("@@\\s-[0-9]+,");
-		Matcher matcher = pattern.matcher(pullRequestDiff);
+		String[] splitDiff = pullRequestDiff.split("\\-\\-\\-");
 		
-		while(matcher.find()) {
-			if (!matcher.group().equals("")) {
-				changedLines.add(matcher.group().replace("@@ ", "").replace("-", "").replace(",", ""));
+		for(String diff : splitDiff) {
+			if (diff.contains(testClass)) {
+				Pattern pattern = Pattern.compile("@@\\s-[0-9]+,[0-9]+\\s\\+[0-9]+,[0-9]+\\s@@\\s[(public)(private)(void)]");
+				Matcher matcher = pattern.matcher(diff);
+				
+				if (matcher.find()) {
+					String line = matcher.group(0).replace("@@", "").replace("-", "").replace("+", "").replace(" ", "");
+					lineNum = line.split(",")[0];
+					return lineNum;
+				}
 			}
 		}
 		
-		return changedLines;
+		return lineNum;
 	}
 	
 	/**
@@ -225,15 +231,15 @@ public class SearchGitHub {
 		JSONObject jsonObject;
 		JSONArray jsonArray;
 		List<Project> projects = new ArrayList<>();
-		int pageNum = 1;
+		int pageNum = 2;
 		
 		do {
 			jsonResponse = searchKeyword(keyword, pageNum);
 			
 			jsonObject = jsonResponse.getBody().getObject();
 			
-//			System.out.println(jsonResponse.getHeaders().toString());
-//			System.out.println(jsonResponse.getBody().toPrettyString());
+			System.out.println(jsonResponse.getHeaders().toString());
+			System.out.println(jsonResponse.getBody().toPrettyString());
 
 			if (jsonObject.length() == 3) {
 				jsonArray = jsonObject.getJSONArray("items");
@@ -250,29 +256,53 @@ public class SearchGitHub {
 						
 						String pullRequestDiff = getPullRequestDiff(currentProject);
 						
-						System.out.println(pullRequestHash);
 						System.out.println(pullRequestDiff);
+						System.out.println(pullRequestHash);
 
 						String testClass = getPullRequestTestClass(currentProject, pullRequestDiff);
-						
 
+						Project project = new Project(projectURL, commitHash, null, null);
+						
 						if (!(testClass == null)) {
-							ArrayList<String> changedLines = getDiffChangedLines(pullRequestDiff);
+							project.setClassName(testClass);
 							
-							Project project = new Project(projectURL, commitHash, testClass, null);
-							Boolean isCloned = RepoUtil.cloneRepo(project);
-							
-							if (isCloned) {
-								Boolean isClass = RepoUtil.checkClassExists(project);
+							String changedLine = getDiffChangedLine(pullRequestDiff, testClass);
+							System.out.println(changedLine);
+
+							if (!(changedLine == null)) {
+								Boolean isCloned = RepoUtil.cloneRepo(project);
 								
 								System.out.println(isCloned + " cloned");
-								System.out.println(isClass + " class");
-								
-								if (isClass) {
-									projects.add(project);
+
+								if (isCloned) {
+									Boolean isClass = RepoUtil.checkClassExists(project);
+									
+									System.out.println(isClass + " class");
+
+									if (isClass) {
+										ArrayList<String> testNames = RepoUtil.findTestName(project, changedLine);
+										
+										if (!testNames.isEmpty()) {
+											String testID = testNames.get(testNames.size()-1);
+											System.out.println(testID);
+											project.setTestID(testID);
+										} else {
+											project.setSkipReason("no test name found in class");
+										}
+									} else {
+										project.setSkipReason("no test class found after cloning");
+									}
+								} else {
+									project.setSkipReason("unsuccessful clone");
 								}
+							} else {
+								project.setSkipReason("no changed lines in test method");
 							}
+						} else {
+							project.setSkipReason("no test class found");
 						}
+						
+						projects.add(project);
 					} else {
 						JSONArray branchNames = getBranchNames(currentProject);
 
