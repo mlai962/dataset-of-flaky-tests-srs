@@ -21,6 +21,7 @@ public class RepoUtil {
 	private static String repoName;
 	private static String testClassName;
 	private static boolean isTestClass = false;
+	private static boolean isClass;
 
 	// Method below taken from https://mkyong.com/java/how-to-execute-shell-command-from-java/
 	public static boolean executeCommand(String cmd, String directory) {
@@ -187,7 +188,7 @@ public class RepoUtil {
 		return testNames;
     }
 	
-	public static boolean checkIssueClassExists(Project project) {
+	public static boolean[] checkIssueClassExistsAndIfTestClass(Project project) {
 		int repoNameLastSlash = project.getProjectName().lastIndexOf("/");
 		repoName = project.getProjectName().substring(repoNameLastSlash+1, 
 				project.getProjectName().length());
@@ -198,11 +199,26 @@ public class RepoUtil {
 				System.out.println(Strings.repeat("=", path.length()));
 				testClassDir = new File(dir + path);
 				System.out.println(testClassDir);
-				isTestClass = true;
+				isClass = true;
 				
+				try {
+					new NodeIterator(new NodeIterator.NodeHandler() {
+						@Override
+						public boolean handle(Node node) {
+							if(node.toString().contains("@Test")) {
+								isTestClass = true;
+								return true;
+							}
+							return false;
+						}
+					}).explore(StaticJavaParser.parse(file));
+					System.out.println(); // empty line
+				} catch (IOException e) {
+					new RuntimeException(e);
+				}
 			}
 		}).explore(new File(dir));
 		
-		return isTestClass;
+		return new boolean[]{isClass, isTestClass};
 	}
 }

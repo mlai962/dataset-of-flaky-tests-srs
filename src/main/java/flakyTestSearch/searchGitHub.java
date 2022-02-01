@@ -347,10 +347,18 @@ public class SearchGitHub {
 							if (isCloned) {
 								System.out.println("true clone");
 								
-								boolean isClass = RepoUtil.checkIssueClassExists(project);
+								boolean[] array = RepoUtil.checkIssueClassExistsAndIfTestClass(project);
+								boolean isClass = array[0];
+								boolean isTestClass = array[1];
 								
 								if (isClass) {
 									System.out.println("true class");
+									
+									if (isTestClass) {
+										System.out.println("true test class");
+									} else {
+										System.out.println("false test class");
+									}
 								} else {
 									System.out.println("false class");
 									project.setSkipReason("no test class found after cloning");
