@@ -43,6 +43,14 @@ public class SearchGitHub {
 		return currentProject.getString("created_at");
 	}
 	
+	public static String getIssueTitle (JSONObject currentProject) {
+		return currentProject.getString("title");
+	}
+	
+	public static String getIssueBody (JSONObject currentProject) {
+		return currentProject.getString("body");
+	}
+	
 	public static String searchIssueBranchName(JSONObject currentProject, JSONArray branchNames) {
 		Boolean hasMaster = false;
 		Boolean hasMain = false;
@@ -124,18 +132,18 @@ public class SearchGitHub {
 	 * @param currentProject: a project containing a pull request fixing flakyness
 	 * @return pullRequestTestID: the name a test or null if none are found
 	 */
-	public static String getPullRequestTestClass(JSONObject currentProject, String pullRequestDiff) {
-		// Searching the diff for a string that starts with a "/", contains "test"
+	public static String searchPattern(String stringToSearch, String stringPattern) {
+		// Searching the input string for a string that starts with a "/", contains "test"
 		// and ends with "java"
-		Pattern pattern = Pattern.compile("\\/[^\\s]*test[^\\s]*java", Pattern.CASE_INSENSITIVE);
-		Matcher matcher = pattern.matcher(pullRequestDiff);
+		Pattern pattern = Pattern.compile(stringPattern, Pattern.CASE_INSENSITIVE);
+		Matcher matcher = pattern.matcher(stringToSearch);
 		
 		// If the above searching finds a match then return the test ID, otherwise
 		// return nothing
 		if (matcher.find()) {
-			String pullRequestTestClass = matcher.group(0);
+			String testClass = matcher.group(0);
 			
-			return pullRequestTestClass;
+			return testClass;
 		}
 		
 		return null;
@@ -250,65 +258,99 @@ public class SearchGitHub {
 					String projectURL = currentProject.getString("repository_url");
 
 					if (currentProject.has("pull_request")) {
-						String pullRequestHash = getPullRequestCommitHash(currentProject);
-						
-						String commitHash = getPullRequestParentCommitHash(currentProject, pullRequestHash);
-						
-						String pullRequestDiff = getPullRequestDiff(currentProject);
-						
-						System.out.println(pullRequestDiff);
-						System.out.println(pullRequestHash);
-
-						String testClass = getPullRequestTestClass(currentProject, pullRequestDiff);
-
-						Project project = new Project(projectURL, commitHash, null, null);
-						
-						if (!(testClass == null)) {
-							project.setClassName(testClass);
-							
-							String changedLine = getDiffChangedLine(pullRequestDiff, testClass);
-							System.out.println(changedLine);
-
-							if (!(changedLine == null)) {
-								Boolean isCloned = RepoUtil.cloneRepo(project);
-								
-								System.out.println(isCloned + " cloned");
-
-								if (isCloned) {
-									Boolean isClass = RepoUtil.checkClassExists(project);
-									
-									System.out.println(isClass + " class");
-
-									if (isClass) {
-										ArrayList<String> testNames = RepoUtil.findTestName(project, changedLine);
-										
-										if (!testNames.isEmpty()) {
-											String testID = testNames.get(testNames.size()-1);
-											System.out.println(testID);
-											project.setTestID(testID);
-										} else {
-											project.setSkipReason("no test name found in class");
-										}
-									} else {
-										project.setSkipReason("no test class found after cloning");
-									}
-								} else {
-									project.setSkipReason("unsuccessful clone");
-								}
-							} else {
-								project.setSkipReason("no changed lines in test method");
-							}
-						} else {
-							project.setSkipReason("no test class found");
-						}
-						
-						projects.add(project);
+//						String pullRequestHash = getPullRequestCommitHash(currentProject);
+//						
+//						String commitHash = getPullRequestParentCommitHash(currentProject, pullRequestHash);
+//						
+//						String pullRequestDiff = getPullRequestDiff(currentProject);
+//						
+//						System.out.println(pullRequestDiff);
+//						System.out.println(pullRequestHash);
+//
+//						String testClass = searchPattern(pullRequestDiff, "\\/[^\\s]*test[^\\s]*java");
+//
+//						Project project = new Project(projectURL, commitHash, null, null);
+//						
+//						if (!(testClass == null)) {
+//							project.setClassName(testClass);
+//							
+//							String changedLine = getDiffChangedLine(pullRequestDiff, testClass);
+//							System.out.println(changedLine);
+//
+//							if (!(changedLine == null)) {
+//								Boolean isCloned = RepoUtil.cloneRepo(project);
+//								
+//								System.out.println(isCloned + " cloned");
+//
+//								if (isCloned) {
+//									Boolean isClass = RepoUtil.checkClassExists(project);
+//									
+//									System.out.println(isClass + " class");
+//
+//									if (isClass) {
+//										ArrayList<String> testNames = RepoUtil.findTestName(project, changedLine);
+//										
+//										if (!testNames.isEmpty()) {
+//											String testID = testNames.get(testNames.size()-1);
+//											System.out.println(testID);
+//											project.setTestID(testID);
+//										} else {
+//											project.setSkipReason("no test name found in class");
+//										}
+//									} else {
+//										project.setSkipReason("no test class found after cloning");
+//									}
+//								} else {
+//									project.setSkipReason("unsuccessful clone");
+//								}
+//							} else {
+//								project.setSkipReason("no changed lines in test method");
+//							}
+//						} else {
+//							project.setSkipReason("no test class found");
+//						}
+//						
+//						projects.add(project);
 					} else {
 						JSONArray branchNames = getBranchNames(currentProject);
 
 						String commitHash = getIssueCommitHash(currentProject, branchNames);
+						
+						Project project = new Project(projectURL, commitHash, null, null);
+						
+						String issueTitle = getIssueTitle(currentProject);
+						
+						String issueBody = getIssueBody(currentProject);
+						
+						String classDotTest = searchPattern(issueTitle, "[a-zA-Z]*(test)[a-zA-z]*\\.[a-zA-Z]*(test)[a-zA-z]*");
+						
+						if (classDotTest == null) {
+							classDotTest = searchPattern(issueBody, "[a-zA-Z]*(test)[a-zA-z]*\\.[a-zA-Z]*(test)[a-zA-z]*");
+						} else {
+							System.out.println(classDotTest);
+						}
+						
+						String testClass = null;
+						String testID = null;
+						
+						if (!(classDotTest == null)) {
+							testClass = classDotTest.split(".")[0];
+							testID = classDotTest.split(".")[1];
+							
+							System.out.println(classDotTest);
+							
+							
+						} else {
+							project.setSkipReason("no test class found");
+						}
+						
+						System.out.println("----------------------------TITLE----------------------------");
+						System.out.println(issueTitle);
+						System.out.println("----------------------------BODY----------------------------");
+						System.out.println(issueBody);
+						System.out.println("----------------------------END----------------------------");
 
-						projects.add(new Project(projectURL, commitHash, null, null));
+						projects.add(project);
 					}
 				}
 			}
