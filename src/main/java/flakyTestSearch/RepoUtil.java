@@ -186,4 +186,23 @@ public class RepoUtil {
 		
 		return testNames;
     }
+	
+	public static boolean checkIssueClassExists(Project project) {
+		int repoNameLastSlash = project.getProjectName().lastIndexOf("/");
+		repoName = project.getProjectName().substring(repoNameLastSlash+1, 
+				project.getProjectName().length());
+		
+		new DirExplorer((level, path, file) -> path.endsWith(".java"), (level, path, file) -> {
+			if (path.contains(project.getClassName())) {
+				System.out.println(path);
+				System.out.println(Strings.repeat("=", path.length()));
+				testClassDir = new File(dir + path);
+				System.out.println(testClassDir);
+				isTestClass = true;
+				
+			}
+		}).explore(new File(dir));
+		
+		return isTestClass;
+	}
 }

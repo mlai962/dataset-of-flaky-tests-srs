@@ -278,7 +278,7 @@ public class SearchGitHub {
 //							System.out.println(changedLine);
 //
 //							if (!(changedLine == null)) {
-//								Boolean isCloned = RepoUtil.cloneRepo(project);
+//								boolean isCloned = RepoUtil.cloneRepo(project);
 //								
 //								System.out.println(isCloned + " cloned");
 //
@@ -334,12 +334,31 @@ public class SearchGitHub {
 						String testID = null;
 						
 						if (!(classDotTest == null)) {
-							testClass = classDotTest.split(".")[0];
-							testID = classDotTest.split(".")[1];
-							
 							System.out.println(classDotTest);
 							
+							testClass = classDotTest.split("\\.")[0];
+							testID = classDotTest.split("\\.")[1];
 							
+							project.setClassName(testClass);
+							project.setTestID(testID);
+							
+							boolean isCloned = RepoUtil.cloneRepo(project);
+							
+							if (isCloned) {
+								System.out.println("true clone");
+								
+								boolean isClass = RepoUtil.checkIssueClassExists(project);
+								
+								if (isClass) {
+									System.out.println("true class");
+								} else {
+									System.out.println("false class");
+									project.setSkipReason("no test class found after cloning");
+								}
+							} else {
+								System.out.println("false clone");
+								project.setSkipReason("unsuccessful clone");
+							}
 						} else {
 							project.setSkipReason("no test class found");
 						}
