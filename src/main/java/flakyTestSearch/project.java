@@ -1,17 +1,20 @@
 package flakyTestSearch;
 
+import java.util.HashMap;
+import java.util.List;
+
 public class Project {
 	private String projectName;
 	private String commitHash;
-	private String className;
-	private String testID;
+	private List<String> classes;
+	private HashMap<String, List<String>> testNames;
 	private String skipReason;
 	
-	public Project(String projectName, String commitHash, String className, String testID) {
+	public Project(String projectName, String commitHash, List<String> classes, HashMap<String, List<String>> testNames) {
 		this.projectName = projectName;
 		this.commitHash = commitHash;
-		this.className = className;
-		this.testID = testID;
+		this.classes = classes;
+		this.testNames = testNames;
 		this.skipReason = null;
 	}
 
@@ -31,20 +34,20 @@ public class Project {
 		this.commitHash = commitHash;
 	}
 	
-	public String getClassName() {
-		return className;
+	public List<String> getClasses() {
+		return classes;
 	}
 
-	public void setClassName(String className) {
-		this.className = className;
+	public void setClasses(List<String> classes) {
+		this.classes = classes;
 	}
 	
-	public String getTestID() {
-		return testID;
+	public HashMap<String, List<String>> getTestNames() {
+		return testNames;
 	}
 	
-	public void setTestID(String testID) {
-		this.testID = testID;
+	public void setTestNames(HashMap<String, List<String>> testNames) {
+		this.testNames = testNames;
 	}
 
 	public String getSkipReason() {

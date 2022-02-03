@@ -6,6 +6,7 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.concurrent.TimeUnit;
 
 import org.eclipse.jgit.util.FileUtils;
 import com.github.javaparser.StaticJavaParser;
@@ -21,7 +22,8 @@ public class RepoUtil {
 	private static String repoName;
 	private static String testClassName;
 	private static boolean isTestClass = false;
-	private static boolean isClass;
+	private static boolean isClass = false;;
+	private static boolean hasTestName = false;
 
 	// Method below taken from https://mkyong.com/java/how-to-execute-shell-command-from-java/
 	public static boolean executeCommand(String cmd, String directory) {
@@ -34,6 +36,8 @@ public class RepoUtil {
 
 			Process process = processBuilder.start();
 
+			
+			
 			BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
 			BufferedReader error = new BufferedReader(new InputStreamReader(process.getErrorStream()));
 
@@ -44,15 +48,17 @@ public class RepoUtil {
 
 			String errorLine;
 			while ((errorLine = error.readLine()) != null) {
-				System.out.print(errorLine);
+				System.out.println(errorLine);
 			}
+			
+			process.waitFor(Config.TIMEOUT_CLONING, TimeUnit.SECONDS);
+			
+			process.destroy();
 
 			int exitVal = process.waitFor();
 			if (exitVal == 0) {
 				isExecuted = true;
-				System.out.println("Success!");
 			} else {
-				System.out.println("Fail!");
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -98,20 +104,17 @@ public class RepoUtil {
 		}
 	}
 
-	public static boolean checkClassExists (Project project) {
+	public static boolean checkClassExists (Project project, String testClass) {
 		int repoNameLastSlash = project.getProjectName().lastIndexOf("/");
 		repoName = project.getProjectName().substring(repoNameLastSlash+1, 
 				project.getProjectName().length());
 
-		int classNameLastSlash = project.getClassName().lastIndexOf("/");
+		int classNameLastSlash = testClass.lastIndexOf("/");
 		testClassDir = new File(dir + File.separator + repoName + File.separator + 
-				project.getClassName().substring(0, classNameLastSlash+1) + File.separator);
+				testClass.substring(0, classNameLastSlash+1) + File.separator);
 
-		testClassName = project.getClassName().substring(classNameLastSlash+1, 
-				project.getClassName().length());
-
-		System.out.println(testClassName);
-		System.out.println(testClassDir);
+		testClassName = testClass.substring(classNameLastSlash+1, 
+				testClass.length());
 
 		File[] matches = testClassDir.listFiles(new FilenameFilter() {
 			public boolean accept(File dir, String name) {
@@ -120,7 +123,6 @@ public class RepoUtil {
 		});
 
 		if (!(matches == null)) {
-			System.out.println(matches[0]);
 			return true;
 		}
 
@@ -128,97 +130,118 @@ public class RepoUtil {
 	}
 	
 	// Main code taken from https://tomassetti.me/getting-started-with-javaparser-analyzing-java-code-programmatically/
-	public static ArrayList<String> findTestName(Project project, String lineNum) {
+	public static ArrayList<String> findTestName(Project project, ArrayList<String> lineNums) {
 		ArrayList<String> testNames = new ArrayList<>();
+		ArrayList<String> finalTestNames = new ArrayList<>();
 
-		int changedLine = Integer.parseInt(lineNum);
-		System.out.println(changedLine);
-
+		long startTime = System.currentTimeMillis();
+		
 		new DirExplorer((level, path, file) -> path.endsWith(".java"), (level, path, file) -> {
 			if (path.contains(testClassName)) {
-				System.out.println(path);
-				System.out.println(Strings.repeat("=", path.length()));
 				try {
 					new NodeIterator(new NodeIterator.NodeHandler() {
 						@Override
 						public boolean handle(Node node) {
 							if(node.toString().contains("@Test")) {
-								System.out.println("is a test class");
 								isTestClass = true;
 								return true;
 							}
+							
 							return false;
 						}
 					}).explore(StaticJavaParser.parse(file));
-					System.out.println(); // empty line
 				} catch (IOException e) {
 					new RuntimeException(e);
 				}
 			}
+			
+			long elapsedTime = System.currentTimeMillis() - startTime;
+			if (elapsedTime > Config.TIMEOUT_SEARCHING) {
+				System.out.println("timeout");
+				return;
+			}
 		}).explore(testClassDir);
 
-		if (isTestClass) {
-			new DirExplorer((level, path, file) -> path.endsWith(".java"), (level, path, file) -> {
-				if (path.contains(testClassName)) {
-					System.out.println(path);
-					System.out.println(Strings.repeat("=", path.length()));
-					try {
-						new VoidVisitorAdapter<Object>() {
-							@Override
-							public void visit(MethodDeclaration n, Object arg) {
-								super.visit(n, arg);
-								int currentLine = n.getRange().get().begin.line;
-								String method = null;
-								if (currentLine < changedLine) {
-									method = n.getNameAsString();
-								} 
-								if (!(method == null)) {
-									testNames.add(method);
+		for (String num : lineNums) {
+			int changedLine = Integer.parseInt(num);
+			
+			if (isTestClass) {
+				new DirExplorer((level, path, file) -> path.endsWith(".java"), (level, path, file) -> {
+					if (path.contains(testClassName)) {
+						try {
+							new VoidVisitorAdapter<Object>() {
+								@Override
+								public void visit(MethodDeclaration n, Object arg) {
+									super.visit(n, arg);
+									int currentLine = n.getRange().get().begin.line;
+									String method = null;
+									if (currentLine < changedLine) {
+										method = n.getNameAsString();
+									} 
+									if (!(method == null)) {
+										testNames.add(method);
+									}
 								}
-							}
-						}.visit(StaticJavaParser.parse(file), null);
-						System.out.println(); // empty line
-					} catch (IOException e) {
-						new RuntimeException(e);
+							}.visit(StaticJavaParser.parse(file), null);
+						} catch (IOException e) {
+							new RuntimeException(e);
+						}
 					}
-				}
-			}).explore(testClassDir);
+					
+					long elapsedTime = System.currentTimeMillis() - startTime;
+					if (elapsedTime > Config.TIMEOUT_SEARCHING) {
+						System.out.println("timeout");
+						return;
+					}
+				}).explore(testClassDir);
+			}
+			
+			if (!testNames.isEmpty()) {
+				finalTestNames.add(testNames.get(testNames.size()-1));
+			}
 		}
 		
-		return testNames;
+		return finalTestNames;
     }
 	
-	public static boolean[] checkIssueClassExistsAndIfTestClass(Project project) {
+	public static boolean[] checkIssueClassExistsAndIfTestClass(Project project, String testClass, String testName) {
 		int repoNameLastSlash = project.getProjectName().lastIndexOf("/");
 		repoName = project.getProjectName().substring(repoNameLastSlash+1, 
 				project.getProjectName().length());
 		
+		long startTime = System.currentTimeMillis();
+		
 		new DirExplorer((level, path, file) -> path.endsWith(".java"), (level, path, file) -> {
-			if (path.contains(project.getClassName())) {
-				System.out.println(path);
-				System.out.println(Strings.repeat("=", path.length()));
+			if (path.contains(testClass)) {
 				testClassDir = new File(dir + path);
-				System.out.println(testClassDir);
 				isClass = true;
 				
 				try {
 					new NodeIterator(new NodeIterator.NodeHandler() {
 						@Override
 						public boolean handle(Node node) {
-							if(node.toString().contains("@Test")) {
+							if (node.toString().contains("@Test")) {
 								isTestClass = true;
-								return true;
+							}
+							
+							if (node.toString().contains(testName)) {
+								hasTestName = true;
 							}
 							return false;
 						}
 					}).explore(StaticJavaParser.parse(file));
-					System.out.println(); // empty line
 				} catch (IOException e) {
 					new RuntimeException(e);
 				}
 			}
+			
+			long elapsedTime = System.currentTimeMillis() - startTime;
+			if (elapsedTime > Config.TIMEOUT_SEARCHING) {
+				System.out.println("timeout");
+				return;
+			}
 		}).explore(new File(dir));
 		
-		return new boolean[]{isClass, isTestClass};
+		return new boolean[]{isClass, isTestClass, hasTestName};
 	}
 }
