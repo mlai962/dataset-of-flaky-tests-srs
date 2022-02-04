@@ -244,7 +244,7 @@ public class SearchGitHub {
 		JSONObject jsonObject;
 		JSONArray jsonArray;
 		List<Project> projects = new ArrayList<>();
-		int pageNum = 7;
+		int pageNum = 1;
 		
 		do {
 			jsonResponse = searchKeyword(keyword, pageNum);
@@ -258,6 +258,10 @@ public class SearchGitHub {
 					JSONObject currentProject = jsonArray.getJSONObject(i);
 
 					String projectURL = currentProject.getString("repository_url");
+					
+					boolean isClass = false;
+					boolean isTestClass = false;
+					boolean hasTestName = false;
 
 					if (currentProject.has("pull_request")) {
 						String pullRequestHash = getPullRequestCommitHash(currentProject);
@@ -271,6 +275,8 @@ public class SearchGitHub {
 						Project project = new Project(projectURL, commitHash, null, null);
 						
 						HashMap<String, List<String>> allTestNames = new HashMap<>();
+						
+						ArrayList<String> changedLines = new ArrayList<>();
 
 						if (!(testClasses.isEmpty())) {
 							project.setClasses(testClasses);
@@ -279,9 +285,9 @@ public class SearchGitHub {
 
 							if (isCloned) {
 								for (String testClass : testClasses) {
-									ArrayList<String> changedLines = getDiffChangedLines(pullRequestDiff, testClass);
+									changedLines = getDiffChangedLines(pullRequestDiff, testClass);
 
-									Boolean isClass = RepoUtil.checkClassExists(project, testClass);
+									isClass = RepoUtil.checkClassExists(project, testClass);
 
 									if (isClass) {
 										if (!(changedLines.isEmpty())) {
@@ -291,28 +297,8 @@ public class SearchGitHub {
 												allTestNames.put(testClass, testNames);
 												
 												project.setTestNames(allTestNames);
-												
-												if (!(project.getTestNames() == null)) {
-													System.out.println(project.getProjectName());
-													System.out.println(project.getCommitHash());
-													for (String className : project.getTestNames().keySet()) {
-														for (String Name : project.getTestNames().get(className)) {
-															System.out.println(className + " " + Name);
-														}
-													}
-													
-												}
-												System.out.println(project.getSkipReason());
 											} 
-											
-											if (allTestNames.isEmpty()) {
-												project.setSkipReason("no test names found in any class");
-											}
-										} else {
-											project.setSkipReason("no changed lines in any test methods");
-										}
-									} else {
-										project.setSkipReason("no test classes found after cloning");
+										} 
 									}
 								}
 							} else {
@@ -321,11 +307,29 @@ public class SearchGitHub {
 						} else {
 							project.setSkipReason("no test classes found in diff");
 						}
+						
+						if (project.getTestNames() != null) {
+							
+						} else if (!isClass) {
+							project.setSkipReason("no test classes found after cloning");
+						} else if (changedLines.isEmpty()) {
+							project.setSkipReason("no changed lines in any test methods");
+						} else if (allTestNames.isEmpty()) {
+							project.setSkipReason("no test names found in any class");
+						}
+						
+						if (project.getTestNames() != null) {
+							System.out.println(project.getProjectName());
+							System.out.println(project.getCommitHash());
+							for (String className : project.getTestNames().keySet()) {
+								for (String Name : project.getTestNames().get(className)) {
+									System.out.println(className + " " + Name);
+								}
+							}
+						}
+						System.out.println(project.getSkipReason());
 
 						projects.add(project);
-						
-							
-
 					} else {
 						JSONArray branchNames = getBranchNames(currentProject);
 
@@ -338,7 +342,7 @@ public class SearchGitHub {
 						String issueBody = getIssueBody(currentProject);
 
 						HashMap<String, List<String>> allTestNames = new HashMap<>();
-
+						
 						ArrayList<String> classDotTests
 						= searchPattern(issueTitle, "[a-zA-Z]*(test)[a-zA-z]*\\.[a-zA-Z]*(test)[a-zA-z]*");
 
@@ -356,10 +360,12 @@ public class SearchGitHub {
 
 									testClass = classDotTest.split("\\.")[0];
 									testName = classDotTest.split("\\.")[1];
+									
 									boolean[] array = RepoUtil.checkIssueClassExistsAndIfTestClass(project, testClass, testName);
-									boolean isClass = array[0];
-									boolean isTestClass = array[1];
-									boolean hasTestName = array[2];
+									
+									isClass = array[0];
+									isTestClass = array[1];
+									hasTestName = array[2];
 
 									if (isClass) {
 										if (isTestClass) {
@@ -371,31 +377,15 @@ public class SearchGitHub {
 													temp.add(testName);
 
 													allTestNames.put(testClass, temp);
-
-													if (!(project.getTestNames() == null)) {
-														System.out.println(project.getProjectName());
-														System.out.println(project.getCommitHash());
-														for (String className : project.getTestNames().keySet()) {
-															for (String Name : project.getTestNames().get(className)) {
-																System.out.println(className + " " + Name);
-															}
-														}
-														
-													}
-													System.out.println(project.getSkipReason());
 												} else {
 													temp.add(testName);
 													allTestNames.put(testClass, temp);
+													
+													project.setTestNames(allTestNames);
 												}
-											} else {
-												project.setSkipReason("test not found in test class");
-											}
-										} else {
-											project.setSkipReason("not a test class");
-										}
-									} else {
-										project.setSkipReason("no test classes found after cloning");
-									}
+											} 
+										} 
+									} 
 								}
 							} else {
 								project.setSkipReason("unsuccessful clone");
@@ -403,6 +393,27 @@ public class SearchGitHub {
 						} else {
 							project.setSkipReason("no test classes found in issue");
 						}
+						
+						if (project.getTestNames() != null) {
+							
+						} else if (!isClass) {
+							project.setSkipReason("no test classes found after cloning");
+						} else if (!isTestClass) {
+							project.setSkipReason("classes found are not test classes");
+						} else if (!hasTestName) {
+							project.setSkipReason("test not found in test class");
+						}
+						
+						if (!(project.getTestNames() == null)) {
+							System.out.println(project.getProjectName());
+							System.out.println(project.getCommitHash());
+							for (String className : project.getTestNames().keySet()) {
+								for (String Name : project.getTestNames().get(className)) {
+									System.out.println(className + " " + Name);
+								}
+							}
+						}
+						System.out.println(project.getSkipReason());
 
 						projects.add(project);
 					}
