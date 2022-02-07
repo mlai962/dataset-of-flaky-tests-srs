@@ -24,6 +24,9 @@ public class RepoUtil {
 	private static boolean isTestClass = false;
 	private static boolean isClass = false;;
 	private static boolean hasTestName = false;
+	private static boolean hasEither = false;
+	private static boolean isMaven = false;
+	private static boolean hasWrapper = false;
 
 	// Method below taken from https://mkyong.com/java/how-to-execute-shell-command-from-java/
 	public static boolean executeCommand(String cmd, String directory) {
@@ -243,5 +246,43 @@ public class RepoUtil {
 		}).explore(new File(dir));
 		
 		return new boolean[]{isClass, isTestClass, hasTestName};
+	}
+	
+	public static boolean[] checkWrapper() {
+		// First index of return array indicates if pom.xml or build.gradle exists
+		// Second index indicates if Maven (true) or Gradle (false)
+		// Third index indicates if there is a wrapper (true) or not (false)
+		
+		hasEither = false;
+		isMaven = false;
+		hasWrapper = false;
+		
+		File repoDir = new File(dir + File.separator + repoName);
+		
+		File[] matches = repoDir.listFiles(new FilenameFilter() {
+			public boolean accept(File dir, String name) {
+				if (name.contains("pom.xml")) {
+					isMaven = true;
+					hasEither = true;
+				} else if (name.contains("build.gradle")) {
+					isMaven = false;
+					hasEither = true;
+				}
+				
+				if (name.contains("mvnw.cmd") || name.contains("gradlew")) {
+					hasWrapper = true;
+				}
+				
+				return true;
+			}
+		});
+		
+		return new boolean[]{hasEither, isMaven, hasWrapper};
+		
+	}
+	
+	public static boolean checkCompile(boolean isMaven, boolean hasWrapper) {
+		
+		return false;
 	}
 }

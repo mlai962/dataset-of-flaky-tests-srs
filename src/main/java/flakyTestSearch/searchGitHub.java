@@ -244,7 +244,7 @@ public class SearchGitHub {
 		JSONObject jsonObject;
 		JSONArray jsonArray;
 		List<Project> projects = new ArrayList<>();
-		int pageNum = 1;
+		int pageNum = 4;
 		
 		do {
 			jsonResponse = searchKeyword(keyword, pageNum);
@@ -290,7 +290,7 @@ public class SearchGitHub {
 									isClass = RepoUtil.checkClassExists(project, testClass);
 
 									if (isClass) {
-										if (!(changedLines.isEmpty())) {
+										if (!changedLines.isEmpty()) {
 											ArrayList<String> testNames = RepoUtil.findTestName(project, changedLines);
 
 											if (!testNames.isEmpty()) {
@@ -309,18 +309,25 @@ public class SearchGitHub {
 						}
 						
 						if (project.getTestNames() != null) {
-							
+							project.setSkipReason(null);
+							boolean[] buildCheck = RepoUtil.checkWrapper();
+							System.out.println(buildCheck[0]);
+							System.out.println(buildCheck[1]);
+							System.out.println(buildCheck[2]);
 						} else if (!isClass) {
 							project.setSkipReason("no test classes found after cloning");
-						} else if (changedLines.isEmpty()) {
-							project.setSkipReason("no changed lines in any test methods");
-						} else if (allTestNames.isEmpty()) {
-							project.setSkipReason("no test names found in any class");
+						} else if (!isTestClass) {
+							project.setSkipReason("classes found are not test classes");
+						} else if (!hasTestName) {
+							project.setSkipReason("test not found in test class");
 						}
 						
+						System.out.println(project.getProjectName());
+						System.out.println(project.getCommitHash());
+						System.out.println(project.getProjectName().replace("api.", "").replace("repos/", "") + "/tree/" + project.getCommitHash());
 						if (project.getTestNames() != null) {
-							System.out.println(project.getProjectName());
-							System.out.println(project.getCommitHash());
+							System.out.println(project.getTestNames());
+							System.out.println();
 							for (String className : project.getTestNames().keySet()) {
 								for (String Name : project.getTestNames().get(className)) {
 									System.out.println(className + " " + Name);
@@ -328,6 +335,7 @@ public class SearchGitHub {
 							}
 						}
 						System.out.println(project.getSkipReason());
+						System.out.println();
 
 						projects.add(project);
 					} else {
@@ -395,7 +403,11 @@ public class SearchGitHub {
 						}
 						
 						if (project.getTestNames() != null) {
-							
+							project.setSkipReason(null);
+							boolean[] buildCheck = RepoUtil.checkWrapper();
+							System.out.println(buildCheck[0]);
+							System.out.println(buildCheck[1]);
+							System.out.println(buildCheck[2]);
 						} else if (!isClass) {
 							project.setSkipReason("no test classes found after cloning");
 						} else if (!isTestClass) {
@@ -404,9 +416,12 @@ public class SearchGitHub {
 							project.setSkipReason("test not found in test class");
 						}
 						
-						if (!(project.getTestNames() == null)) {
-							System.out.println(project.getProjectName());
-							System.out.println(project.getCommitHash());
+						System.out.println(project.getProjectName());
+						System.out.println(project.getCommitHash());
+						System.out.println(project.getProjectName().replace("api.", "").replace("repos/", "") + "/tree/" + project.getCommitHash());
+						if (project.getTestNames() != null) {
+							System.out.println(project.getTestNames());
+							System.out.println();
 							for (String className : project.getTestNames().keySet()) {
 								for (String Name : project.getTestNames().get(className)) {
 									System.out.println(className + " " + Name);
@@ -414,6 +429,7 @@ public class SearchGitHub {
 							}
 						}
 						System.out.println(project.getSkipReason());
+						System.out.println();
 
 						projects.add(project);
 					}
