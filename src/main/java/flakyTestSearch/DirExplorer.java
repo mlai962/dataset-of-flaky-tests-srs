@@ -1,4 +1,4 @@
-package flakyTestSearch;
+package main.java.flakyTestSearch;
 
 import java.io.File;
 

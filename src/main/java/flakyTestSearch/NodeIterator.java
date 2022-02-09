@@ -1,4 +1,4 @@
-package flakyTestSearch;
+package main.java.flakyTestSearch;
 
 import com.github.javaparser.ast.Node;
 

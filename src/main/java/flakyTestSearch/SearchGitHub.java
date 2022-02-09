@@ -1,4 +1,4 @@
-package flakyTestSearch;
+package main.java.flakyTestSearch;
 
 import java.util.ArrayList;
 import java.util.HashMap;

@@ -1,4 +1,4 @@
-package flakyTestSearch;
+package main.java.flakyTestSearch;
 
 public class Config {
 	public static long TIMEOUT_CLONING = 600; // Time in seconds before repo cloning times out
