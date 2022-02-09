@@ -39,8 +39,7 @@ public class RepoUtil {
 //				e.printStackTrace();
 //			}
 			System.out.println(repoName);
-			System.out.println("RD \"" + repoName + "\" /q /s");
-			executeCommand("RD \"" + repoName + "\" /q /s", dir, false);
+			executeCommand("rm -rf " + repoName, dir, false);
 		}
 	}
 
@@ -62,32 +61,19 @@ public class RepoUtil {
 	// Method below taken from https://mkyong.com/java/how-to-execute-shell-command-from-java/
 	public static boolean executeCommand(String cmd, String directory, boolean enableTimeout) {
 		boolean exitStatus = false;
+		int exitValue = 0;
 		
 		try {
 			ProcessBuilder processBuilder = new ProcessBuilder();
 
-			processBuilder.command("cmd.exe", "/c", cmd).directory(new File(directory));
+			processBuilder.command("sh", "-c", cmd).directory(new File(directory));
 
 			Process process = processBuilder.start();
 			
 			if (enableTimeout) {
 				exitStatus = process.waitFor(Config.TIMEOUT_CLONING, TimeUnit.SECONDS);
 			} else {
-				process.waitFor();
-			}
-			
-			
-			
-			if (!exitStatus) {
-				process.destroy();
-
-				executeCommand("taskkill /IM \"git-remote-https.exe\" /F", dir, false);
-				
-				process.waitFor();
-				
-				System.out.println("timeout");
-				
-				return exitStatus;
+				exitValue = process.waitFor();
 			}
 			
 			BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
@@ -101,6 +87,26 @@ public class RepoUtil {
 			String errorLine;
 			while ((errorLine = error.readLine()) != null) {
 				System.out.println(errorLine);
+			}
+			
+			if (!exitStatus && enableTimeout) {
+				process.destroy();
+
+//				executeCommand("taskkill /IM \"git-remote-https.exe\" /F", dir, false);
+				
+				process.waitFor();
+				
+				System.out.println("timeout");
+				
+				return exitStatus;
+			}
+			
+			if (exitValue != 0 && !enableTimeout) {
+				process.destroy();
+				
+				System.out.println("command execution failure");
+				
+				return false;
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -291,11 +297,11 @@ public class RepoUtil {
 		boolean builds = false;
 		
 		if (isMaven && hasWrapper) {
-			builds = executeCommand("mvnw.cmd install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true", repoDir, false);
+			builds = executeCommand("./mvnw.cmd install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true", repoDir, false);
 		} else if (isMaven) {
 			builds = executeCommand("mvn install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true", repoDir, false);
 		} else if (hasWrapper) {
-			builds = executeCommand("gradlew build -x test", repoDir, false);
+			builds = executeCommand("./gradlew build -x test", repoDir, false);
 		} else {
 			builds = executeCommand("gradle build -x test", repoDir, false);
 		}
