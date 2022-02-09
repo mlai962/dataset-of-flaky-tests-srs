@@ -48,7 +48,11 @@ public class SearchGitHub {
 	}
 	
 	public static String getIssueBody (JSONObject currentProject) {
-		return currentProject.getString("body");
+		if (!currentProject.isNull("body")) {
+			return currentProject.getString("body");
+		}
+		
+		return "";
 	}
 	
 	public static String searchIssueBranchName(JSONObject currentProject, JSONArray branchNames) {
@@ -244,7 +248,7 @@ public class SearchGitHub {
 		JSONObject jsonObject;
 		JSONArray jsonArray;
 		List<Project> projects = new ArrayList<>();
-		int pageNum = 4;
+		int pageNum = Config.STARTING_SEARCH_PAGE;
 		
 		do {
 			jsonResponse = searchKeyword(keyword, pageNum);
@@ -259,9 +263,14 @@ public class SearchGitHub {
 
 					String projectURL = currentProject.getString("repository_url");
 					
+					Project project = new Project(projectURL, null, null, null);
+					
+					boolean isCloned = false;
 					boolean isClass = false;
 					boolean isTestClass = false;
 					boolean hasTestName = false;
+					
+					ArrayList<String> testClasses = new ArrayList<>();
 
 					if (currentProject.has("pull_request")) {
 						String pullRequestHash = getPullRequestCommitHash(currentProject);
@@ -269,51 +278,57 @@ public class SearchGitHub {
 						String commitHash = getPullRequestParentCommitHash(currentProject, pullRequestHash);
 						
 						String pullRequestDiff = getPullRequestDiff(currentProject);
+						
+						testClasses = searchPattern(pullRequestDiff, "\\/[^\\s]*test[^\\s]*java");
 
-						ArrayList<String> testClasses = searchPattern(pullRequestDiff, "\\/[^\\s]*test[^\\s]*java");
-
-						Project project = new Project(projectURL, commitHash, null, null);
+						project.setCommitHash(commitHash);
 						
 						HashMap<String, List<String>> allTestNames = new HashMap<>();
 						
 						ArrayList<String> changedLines = new ArrayList<>();
 
-						if (!(testClasses.isEmpty())) {
+						if (!testClasses.isEmpty()) {
 							project.setClasses(testClasses);
 
-							boolean isCloned = RepoUtil.cloneRepo(project);
+							RepoUtil.deleteTempRepoDir();
+							RepoUtil.setUp(project, null, false);
+							isCloned = RepoUtil.cloneRepo(project);
 
 							if (isCloned) {
 								for (String testClass : testClasses) {
 									changedLines = getDiffChangedLines(pullRequestDiff, testClass);
 
-									isClass = RepoUtil.checkClassExists(project, testClass);
+									RepoUtil.setUp(project, testClass, true);
+									isClass = RepoUtil.checkClassExists(project);
 
-									if (isClass) {
-										if (!changedLines.isEmpty()) {
-											ArrayList<String> testNames = RepoUtil.findTestName(project, changedLines);
+									if (isClass && !changedLines.isEmpty()) {
+										ArrayList<String> testNames = RepoUtil.findTestName(project, changedLines);
 
-											if (!testNames.isEmpty()) {
-												allTestNames.put(testClass, testNames);
-												
-												project.setTestNames(allTestNames);
-											} 
+										if (!testNames.isEmpty()) {
+											allTestNames.put(testClass, testNames);
+											
+											project.setTestNames(allTestNames);
 										} 
 									}
 								}
-							} else {
-								project.setSkipReason("unsuccessful clone");
 							} 
-						} else {
-							project.setSkipReason("no test classes found in diff");
-						}
+						} 
 						
 						if (project.getTestNames() != null) {
 							project.setSkipReason(null);
 							boolean[] buildCheck = RepoUtil.checkWrapper();
-							System.out.println(buildCheck[0]);
-							System.out.println(buildCheck[1]);
-							System.out.println(buildCheck[2]);
+							System.out.println(buildCheck[0] + "has maven or gradle");
+							System.out.println(buildCheck[1] + "has maven");
+							System.out.println(buildCheck[2] + "has wrapper");
+							
+							if (buildCheck[0]) {
+								System.out.println("checking compile");
+								boolean builds = RepoUtil.checkCompile(buildCheck[1], buildCheck[2]);
+							}
+						} else if (!testClasses.isEmpty()) {
+							project.setSkipReason("no test classes found in diff");
+						} else if (!isCloned) {
+							project.setSkipReason("unsuccessful clone");
 						} else if (!isClass) {
 							project.setSkipReason("no test classes found after cloning");
 						} else if (!isTestClass) {
@@ -321,29 +336,12 @@ public class SearchGitHub {
 						} else if (!hasTestName) {
 							project.setSkipReason("test not found in test class");
 						}
-						
-						System.out.println(project.getProjectName());
-						System.out.println(project.getCommitHash());
-						System.out.println(project.getProjectName().replace("api.", "").replace("repos/", "") + "/tree/" + project.getCommitHash());
-						if (project.getTestNames() != null) {
-							System.out.println(project.getTestNames());
-							System.out.println();
-							for (String className : project.getTestNames().keySet()) {
-								for (String Name : project.getTestNames().get(className)) {
-									System.out.println(className + " " + Name);
-								}
-							}
-						}
-						System.out.println(project.getSkipReason());
-						System.out.println();
-
-						projects.add(project);
 					} else {
 						JSONArray branchNames = getBranchNames(currentProject);
 
 						String commitHash = getIssueCommitHash(currentProject, branchNames);
-
-						Project project = new Project(projectURL, commitHash, null, null);
+						
+						project.setCommitHash(commitHash);
 
 						String issueTitle = getIssueTitle(currentProject);
 
@@ -352,14 +350,16 @@ public class SearchGitHub {
 						HashMap<String, List<String>> allTestNames = new HashMap<>();
 						
 						ArrayList<String> classDotTests
-						= searchPattern(issueTitle, "[a-zA-Z]*(test)[a-zA-z]*\\.[a-zA-Z]*(test)[a-zA-z]*");
+								= searchPattern(issueTitle, "[a-zA-Z]*(test)[a-zA-z]*\\.[a-zA-Z]*(test)[a-zA-z]*");
 
 						if (classDotTests.isEmpty()) {
 							classDotTests = searchPattern(issueBody, "[a-zA-Z]*(test)[a-zA-z]*\\.[a-zA-Z]*(test)[a-zA-z]*");
 						}
 
 						if (!classDotTests.isEmpty()) {
-							boolean isCloned = RepoUtil.cloneRepo(project);
+							RepoUtil.deleteTempRepoDir();
+							RepoUtil.setUp(project, null, false);
+							isCloned = RepoUtil.cloneRepo(project);
 
 							if (isCloned) {
 								for (String classDotTest : classDotTests) {
@@ -375,39 +375,40 @@ public class SearchGitHub {
 									isTestClass = array[1];
 									hasTestName = array[2];
 
-									if (isClass) {
-										if (isTestClass) {
-											if (hasTestName) {
-												List<String> temp = new ArrayList<>();
+									if (isClass && isTestClass && hasTestName) {
+										List<String> temp = new ArrayList<>();
 
-												if (allTestNames.containsKey(testClass)) {
-													temp = allTestNames.get(testClass);
-													temp.add(testName);
+										if (allTestNames.containsKey(testClass)) {
+											temp = allTestNames.get(testClass);
+											temp.add(testName);
 
-													allTestNames.put(testClass, temp);
-												} else {
-													temp.add(testName);
-													allTestNames.put(testClass, temp);
-													
-													project.setTestNames(allTestNames);
-												}
-											} 
-										} 
+											allTestNames.put(testClass, temp);
+										} else {
+											temp.add(testName);
+											allTestNames.put(testClass, temp);
+
+											project.setTestNames(allTestNames);
+										}
 									} 
 								}
-							} else {
-								project.setSkipReason("unsuccessful clone");
 							}
-						} else {
-							project.setSkipReason("no test classes found in issue");
 						}
 						
 						if (project.getTestNames() != null) {
 							project.setSkipReason(null);
 							boolean[] buildCheck = RepoUtil.checkWrapper();
-							System.out.println(buildCheck[0]);
-							System.out.println(buildCheck[1]);
-							System.out.println(buildCheck[2]);
+							System.out.println(buildCheck[0] + "has maven or gradle");
+							System.out.println(buildCheck[1] + "has maven");
+							System.out.println(buildCheck[2] + "has wrapper");
+							
+							if (buildCheck[0]) {
+								System.out.println("checking compile");
+								boolean builds = RepoUtil.checkCompile(buildCheck[1], buildCheck[2]);
+							}
+						} else if (classDotTests.isEmpty()) {
+							project.setSkipReason("no classes and tests found in issue title or body");
+						} else if (!isCloned) {
+							project.setSkipReason("unsuccessful clone");
 						} else if (!isClass) {
 							project.setSkipReason("no test classes found after cloning");
 						} else if (!isTestClass) {
@@ -415,30 +416,28 @@ public class SearchGitHub {
 						} else if (!hasTestName) {
 							project.setSkipReason("test not found in test class");
 						}
-						
-						System.out.println(project.getProjectName());
-						System.out.println(project.getCommitHash());
-						System.out.println(project.getProjectName().replace("api.", "").replace("repos/", "") + "/tree/" + project.getCommitHash());
-						if (project.getTestNames() != null) {
-							System.out.println(project.getTestNames());
-							System.out.println();
-							for (String className : project.getTestNames().keySet()) {
-								for (String Name : project.getTestNames().get(className)) {
-									System.out.println(className + " " + Name);
-								}
+					}
+					
+					System.out.println(project.getProjectName());
+					System.out.println(project.getCommitHash());
+					System.out.println(project.getProjectName().replace("api.", "").replace("repos/", "") + "/tree/" + project.getCommitHash());
+					if (project.getTestNames() != null) {
+						System.out.println(project.getTestNames());
+						System.out.println();
+						for (String className : project.getTestNames().keySet()) {
+							for (String Name : project.getTestNames().get(className)) {
+								System.out.println(className + " " + Name);
 							}
 						}
-						System.out.println(project.getSkipReason());
-						System.out.println();
-
-						projects.add(project);
 					}
+					System.out.println(project.getSkipReason());
+					System.out.println();
+					
+					projects.add(project);
 				}
 			}
 			
 			pageNum++;
-			
-			break;
 		} while (jsonResponse.getStatus() == 200);
 		
 		return projects;

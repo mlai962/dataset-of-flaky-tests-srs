@@ -9,17 +9,16 @@ import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 
 import org.eclipse.jgit.util.FileUtils;
+
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
-import com.google.common.base.Strings;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.Node;
 
 public class RepoUtil {
-	private static String dir = "C:\\Users\\Matthew\\Downloads\\Documents\\School 2021\\tempRepo";
-	private static String lastRepoName = "";
+	private static String dir = Config.TEMP_DIR;
 	private static File testClassDir;
-	private static String repoName;
+	private static String repoName = "";
 	private static String testClassName;
 	private static boolean isTestClass = false;
 	private static boolean isClass = false;;
@@ -28,18 +27,68 @@ public class RepoUtil {
 	private static boolean isMaven = false;
 	private static boolean hasWrapper = false;
 
-	// Method below taken from https://mkyong.com/java/how-to-execute-shell-command-from-java/
-	public static boolean executeCommand(String cmd, String directory) {
-		boolean isExecuted = false;
+	public static void deleteTempRepoDir() {
+		if (!repoName.equals("")) {
+//			try {
+//				FileUtils.delete(new File(dir + File.separator + repoName), 
+//						FileUtils.RECURSIVE);
+//				
+//				FileUtils.delete(new File(dir + File.separator + repoName), 
+//						FileUtils.RETRY);
+//			} catch (IOException e) {
+//				e.printStackTrace();
+//			}
+			System.out.println(repoName);
+			System.out.println("RD \"" + repoName + "\" /q /s");
+			executeCommand("RD \"" + repoName + "\" /q /s", dir, false);
+		}
+	}
 
+	public static void setUp(Project project, String testClass, boolean isPullRequest) {
+		int repoNameLastSlash = project.getProjectName().lastIndexOf("/");
+		repoName = project.getProjectName().substring(repoNameLastSlash+1, 
+				project.getProjectName().length());
+
+		if (isPullRequest) {
+			int classNameLastSlash = testClass.lastIndexOf("/");
+			testClassDir = new File(dir + File.separator + repoName + File.separator + 
+					testClass.substring(0, classNameLastSlash+1) + File.separator);
+	
+			testClassName = testClass.substring(classNameLastSlash+1, 
+					testClass.length());
+		}
+	}
+	
+	// Method below taken from https://mkyong.com/java/how-to-execute-shell-command-from-java/
+	public static boolean executeCommand(String cmd, String directory, boolean enableTimeout) {
+		boolean exitStatus = false;
+		
 		try {
 			ProcessBuilder processBuilder = new ProcessBuilder();
 
 			processBuilder.command("cmd.exe", "/c", cmd).directory(new File(directory));
 
 			Process process = processBuilder.start();
-
 			
+			if (enableTimeout) {
+				exitStatus = process.waitFor(Config.TIMEOUT_CLONING, TimeUnit.SECONDS);
+			} else {
+				process.waitFor();
+			}
+			
+			
+			
+			if (!exitStatus) {
+				process.destroy();
+
+				executeCommand("taskkill /IM \"git-remote-https.exe\" /F", dir, false);
+				
+				process.waitFor();
+				
+				System.out.println("timeout");
+				
+				return exitStatus;
+			}
 			
 			BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
 			BufferedReader error = new BufferedReader(new InputStreamReader(process.getErrorStream()));
@@ -53,72 +102,32 @@ public class RepoUtil {
 			while ((errorLine = error.readLine()) != null) {
 				System.out.println(errorLine);
 			}
-			
-			process.waitFor(Config.TIMEOUT_CLONING, TimeUnit.SECONDS);
-			
-			process.destroy();
-
-			int exitVal = process.waitFor();
-			if (exitVal == 0) {
-				isExecuted = true;
-			} else {
-			}
 		} catch (IOException e) {
 			e.printStackTrace();
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
 
-		return isExecuted;
+		return exitStatus;
 	}
-
-	public static void deleteTempRepoDir() {
-		try {
-			FileUtils.delete(new File(dir + File.separator + lastRepoName + File.separator), 
-					org.eclipse.jgit.util.FileUtils.RECURSIVE);
-		} catch (java.io.IOException e) {
-			e.printStackTrace();
-		}
-	}
-
+	
 	public static boolean cloneRepo (Project project) {
-		if (!lastRepoName.equals("")) {
-			deleteTempRepoDir();
-		}
-
 		String repoURL = project.getProjectName();
-		String cloneURL = repoURL.replace("api.", "").replace("repos/", "") + ".git/";
+		String cloneURL = repoURL.replace("api.", "").replace("repos/", "") + ".git";
 
 		String commitHash = project.getCommitHash();
 
-		boolean isCloned = executeCommand("git clone " + cloneURL, dir);
-		
-		int lastSlash = project.getProjectName().lastIndexOf("/");
-		String repoName = project.getProjectName().substring(lastSlash+1, 
-				project.getProjectName().length());
-		
-		lastRepoName = repoName;
+		boolean isCloned = executeCommand("git clone " + cloneURL, dir, true);
 
 		if (isCloned) {
-			return executeCommand("git reset " + commitHash + " --hard", 
-					dir + File.separator + repoName);
+			return executeCommand("git reset --hard " + commitHash, 
+					dir + File.separator + repoName, true);
 		} else {
 			return false;
 		}
 	}
 
-	public static boolean checkClassExists (Project project, String testClass) {
-		int repoNameLastSlash = project.getProjectName().lastIndexOf("/");
-		repoName = project.getProjectName().substring(repoNameLastSlash+1, 
-				project.getProjectName().length());
-
-		int classNameLastSlash = testClass.lastIndexOf("/");
-		testClassDir = new File(dir + File.separator + repoName + File.separator + 
-				testClass.substring(0, classNameLastSlash+1) + File.separator);
-
-		testClassName = testClass.substring(classNameLastSlash+1, 
-				testClass.length());
-
+	public static boolean checkClassExists (Project project) {
 		File[] matches = testClassDir.listFiles(new FilenameFilter() {
 			public boolean accept(File dir, String name) {
 				return name.startsWith(testClassName);
@@ -208,10 +217,6 @@ public class RepoUtil {
     }
 	
 	public static boolean[] checkIssueClassExistsAndIfTestClass(Project project, String testClass, String testName) {
-		int repoNameLastSlash = project.getProjectName().lastIndexOf("/");
-		repoName = project.getProjectName().substring(repoNameLastSlash+1, 
-				project.getProjectName().length());
-		
 		long startTime = System.currentTimeMillis();
 		
 		new DirExplorer((level, path, file) -> path.endsWith(".java"), (level, path, file) -> {
@@ -282,7 +287,21 @@ public class RepoUtil {
 	}
 	
 	public static boolean checkCompile(boolean isMaven, boolean hasWrapper) {
+		String repoDir = dir + File.separator + repoName;
+		boolean builds = false;
 		
-		return false;
+		if (isMaven && hasWrapper) {
+			builds = executeCommand("mvnw.cmd install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true", repoDir, false);
+		} else if (isMaven) {
+			builds = executeCommand("mvn install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true", repoDir, false);
+		} else if (hasWrapper) {
+			builds = executeCommand("gradlew build -x test", repoDir, false);
+		} else {
+			builds = executeCommand("gradle build -x test", repoDir, false);
+		}
+		
+		System.out.println(builds);
+		
+		return builds;
 	}
 }
