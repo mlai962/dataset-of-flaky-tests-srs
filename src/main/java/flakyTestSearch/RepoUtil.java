@@ -6,6 +6,7 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import org.eclipse.jgit.util.FileUtils;
@@ -148,7 +149,7 @@ public class RepoUtil {
 	}
 	
 	// Main code taken from https://tomassetti.me/getting-started-with-javaparser-analyzing-java-code-programmatically/
-	public static ArrayList<String> findTestName(Project project, ArrayList<String> lineNums) {
+	public static List<String> findTestName(Project project, ArrayList<String> lineNums) {
 		ArrayList<String> testNames = new ArrayList<>();
 		ArrayList<String> finalTestNames = new ArrayList<>();
 
@@ -297,13 +298,13 @@ public class RepoUtil {
 		boolean builds = false;
 		
 		if (isMaven && hasWrapper) {
-			builds = executeCommand("./mvnw.cmd install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true", repoDir, false);
+			builds = executeCommand("./mvnw install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true", repoDir, false);
 		} else if (isMaven) {
 			builds = executeCommand("mvn install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true", repoDir, false);
 		} else if (hasWrapper) {
-			builds = executeCommand("./gradlew build -x test", repoDir, false);
+			builds = executeCommand("./gradlew build -x test -x javadoc", repoDir, false);
 		} else {
-			builds = executeCommand("gradle build -x test", repoDir, false);
+			builds = executeCommand("gradle build -x test -x javadoc", repoDir, false);
 		}
 		
 		System.out.println(builds);

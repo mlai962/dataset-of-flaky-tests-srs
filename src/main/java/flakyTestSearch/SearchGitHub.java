@@ -2,10 +2,12 @@ package main.java.flakyTestSearch;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import kong.unirest.HttpResponse;
 import kong.unirest.JsonNode;
@@ -202,7 +204,7 @@ public class SearchGitHub {
 		
 		for(String diff : splitDiff) {
 			if (diff.contains(testClass)) {
-				Pattern pattern = Pattern.compile("@@\\s-[0-9]+,[0-9]+\\s\\+[0-9]+,[0-9]+\\s@@\\s[(public)(private)(void)]");
+				Pattern pattern = Pattern.compile("@@\\s-[0-9]+,[0-9]+\\s\\+[0-9]+,[0-9]+\\s@@\\s(?:public|private|void)");
 				Matcher matcher = pattern.matcher(diff);
 				
 				while (matcher.find()) {
@@ -302,9 +304,11 @@ public class SearchGitHub {
 									isClass = RepoUtil.checkClassExists(project);
 
 									if (isClass && !changedLines.isEmpty()) {
-										ArrayList<String> testNames = RepoUtil.findTestName(project, changedLines);
+										List<String> testNames = RepoUtil.findTestName(project, changedLines);
 
 										if (!testNames.isEmpty()) {
+											testNames = testNames.stream().distinct().collect(Collectors.toList());
+
 											allTestNames.put(testClass, testNames);
 											
 											project.setTestNames(allTestNames);
@@ -323,7 +327,7 @@ public class SearchGitHub {
 							
 							if (buildCheck[0]) {
 								System.out.println("checking compile");
-								boolean builds = RepoUtil.checkCompile(buildCheck[1], buildCheck[2]);
+//								boolean builds = RepoUtil.checkCompile(buildCheck[1], buildCheck[2]);
 							}
 						} else if (!testClasses.isEmpty()) {
 							project.setSkipReason("no test classes found in diff");
@@ -381,15 +385,18 @@ public class SearchGitHub {
 										if (allTestNames.containsKey(testClass)) {
 											temp = allTestNames.get(testClass);
 											temp.add(testName);
+											temp = temp.stream().distinct().collect(Collectors.toList());
 
 											allTestNames.put(testClass, temp);
 										} else {
 											temp.add(testName);
+											temp = temp.stream().distinct().collect(Collectors.toList());
+											
 											allTestNames.put(testClass, temp);
-
-											project.setTestNames(allTestNames);
 										}
 									} 
+									
+									project.setTestNames(allTestNames);
 								}
 							}
 						}
@@ -403,7 +410,7 @@ public class SearchGitHub {
 							
 							if (buildCheck[0]) {
 								System.out.println("checking compile");
-								boolean builds = RepoUtil.checkCompile(buildCheck[1], buildCheck[2]);
+//								boolean builds = RepoUtil.checkCompile(buildCheck[1], buildCheck[2]);
 							}
 						} else if (classDotTests.isEmpty()) {
 							project.setSkipReason("no classes and tests found in issue title or body");
@@ -425,8 +432,9 @@ public class SearchGitHub {
 						System.out.println(project.getTestNames());
 						System.out.println();
 						for (String className : project.getTestNames().keySet()) {
+							System.out.println(className);
 							for (String Name : project.getTestNames().get(className)) {
-								System.out.println(className + " " + Name);
+								System.out.println(Name);
 							}
 						}
 					}
