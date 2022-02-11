@@ -425,9 +425,9 @@ public class SearchGitHub {
 						}
 					}
 					
-					System.out.println(project.getProjectName());
+					System.out.println(project.getProjectURL());
 					System.out.println(project.getCommitHash());
-					System.out.println(project.getProjectName().replace("api.", "").replace("repos/", "") + "/tree/" + project.getCommitHash());
+					System.out.println(project.getProjectURL().replace("api.", "").replace("repos/", "") + "/tree/" + project.getCommitHash());
 					if (project.getTestNames() != null) {
 						System.out.println(project.getTestNames());
 						System.out.println();

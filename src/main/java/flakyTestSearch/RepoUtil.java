@@ -30,24 +30,17 @@ public class RepoUtil {
 
 	public static void deleteTempRepoDir() {
 		if (!repoName.equals("")) {
-//			try {
-//				FileUtils.delete(new File(dir + File.separator + repoName), 
-//						FileUtils.RECURSIVE);
-//				
-//				FileUtils.delete(new File(dir + File.separator + repoName), 
-//						FileUtils.RETRY);
-//			} catch (IOException e) {
-//				e.printStackTrace();
-//			}
 			System.out.println(repoName);
 			executeCommand("rm -rf " + repoName, dir, false);
 		}
 	}
 
 	public static void setUp(Project project, String testClass, boolean isPullRequest) {
-		int repoNameLastSlash = project.getProjectName().lastIndexOf("/");
-		repoName = project.getProjectName().substring(repoNameLastSlash+1, 
-				project.getProjectName().length());
+		int repoNameLastSlash = project.getProjectURL().lastIndexOf("/");
+		repoName = project.getProjectURL().substring(repoNameLastSlash+1, 
+				project.getProjectURL().length());
+		
+		project.setProjectName(repoName);
 
 		if (isPullRequest) {
 			int classNameLastSlash = testClass.lastIndexOf("/");
@@ -119,7 +112,7 @@ public class RepoUtil {
 	}
 	
 	public static boolean cloneRepo (Project project) {
-		String repoURL = project.getProjectName();
+		String repoURL = project.getProjectURL();
 		String cloneURL = repoURL.replace("api.", "").replace("repos/", "") + ".git";
 
 		String commitHash = project.getCommitHash();
@@ -128,7 +121,7 @@ public class RepoUtil {
 
 		if (isCloned) {
 			return executeCommand("git reset --hard " + commitHash, 
-					dir + File.separator + repoName, true);
+					dir + File.separator + project.getProjectName(), true);
 		} else {
 			return false;
 		}

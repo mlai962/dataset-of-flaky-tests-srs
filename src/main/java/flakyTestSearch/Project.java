@@ -4,26 +4,27 @@ import java.util.HashMap;
 import java.util.List;
 
 public class Project {
-	private String projectName;
+	private String projectURL;
 	private String commitHash;
 	private List<String> classes;
 	private HashMap<String, List<String>> testNames;
 	private String skipReason;
+	private String projectName;
 	
-	public Project(String projectName, String commitHash, List<String> classes, HashMap<String, List<String>> testNames) {
-		this.projectName = projectName;
+	public Project(String projectURL, String commitHash, List<String> classes, HashMap<String, List<String>> testNames) {
+		this.projectURL = projectURL;
 		this.commitHash = commitHash;
 		this.classes = classes;
 		this.testNames = testNames;
 		this.skipReason = null;
 	}
 
-	public String getProjectName() {
-		return projectName;
+	public String getProjectURL() {
+		return projectURL;
 	}
 	
-	public void setProjectName(String projectName) {
-		this.projectName = projectName;
+	public void setProjectURL(String projectURL) {
+		this.projectURL = projectURL;
 	}
 
 	public String getCommitHash() {
@@ -56,5 +57,13 @@ public class Project {
 
 	public void setSkipReason(String skipReason) {
 		this.skipReason = skipReason;
+	}
+	
+	public String getProjectName() {
+		return projectName;
+	}
+	
+	public void setProjectName(String projectName) {
+		this.projectName = projectName;
 	}
 }
