@@ -10,6 +10,7 @@ public class Project {
 	private HashMap<String, List<String>> testNames;
 	private String skipReason;
 	private String projectName;
+	private List<TestResult> testResults;
 	
 	public Project(String projectURL, String commitHash, List<String> classes, HashMap<String, List<String>> testNames) {
 		this.projectURL = projectURL;
@@ -65,5 +66,13 @@ public class Project {
 	
 	public void setProjectName(String projectName) {
 		this.projectName = projectName;
+	}
+
+	public List<TestResult> getTestResults() {
+		return testResults;
+	}
+
+	public void setTestResults(List<TestResult> testResults) {
+		this.testResults = testResults;
 	}
 }
