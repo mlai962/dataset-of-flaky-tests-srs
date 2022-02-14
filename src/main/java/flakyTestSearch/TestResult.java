@@ -1,14 +1,24 @@
 package main.java.flakyTestSearch;
 
 public class TestResult {
+	private String className;
 	private String testName;
 	private double flakyness;
 	private boolean ifOrderDependent;
 	
-	public TestResult(String testName, double flakyness, boolean ifOrderDependent) {
+	public TestResult(String className, String testName, double flakyness, boolean ifOrderDependent) {
+		this.className = className;
 		this.testName = testName;
 		this.flakyness = flakyness;
 		this.ifOrderDependent = ifOrderDependent;
+	}
+	
+	public String getClassName() {
+		return className;
+	}
+	
+	public void setClassName(String className) {
+		this.className = className;
 	}
 
 	public String getTestName() {

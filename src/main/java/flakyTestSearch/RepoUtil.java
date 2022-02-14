@@ -85,8 +85,6 @@ public class RepoUtil {
 			
 			if (!exitStatus && enableTimeout) {
 				process.destroy();
-
-//				executeCommand("taskkill /IM \"git-remote-https.exe\" /F", dir, false);
 				
 				process.waitFor();
 				
@@ -219,36 +217,40 @@ public class RepoUtil {
 	public static boolean[] checkIssueClassExistsAndIfTestClass(Project project, String testClass, String testName) {
 		long startTime = System.currentTimeMillis();
 		
-		new DirExplorer((level, path, file) -> path.endsWith(".java"), (level, path, file) -> {
-			if (path.contains(testClass)) {
-				testClassDir = new File(dir + path);
-				isClass = true;
-				
-				try {
-					new NodeIterator(new NodeIterator.NodeHandler() {
-						@Override
-						public boolean handle(Node node) {
-							if (node.toString().contains("@Test")) {
-								isTestClass = true;
+		try {
+			new DirExplorer((level, path, file) -> path.endsWith(".java"), (level, path, file) -> {
+				if (path.contains(testClass)) {
+					testClassDir = new File(dir + path);
+					isClass = true;
+					
+					try {
+						new NodeIterator(new NodeIterator.NodeHandler() {
+							@Override
+							public boolean handle(Node node) {
+								if (node.toString().contains("@Test")) {
+									isTestClass = true;
+								}
+								
+								if (node.toString().contains(testName)) {
+									hasTestName = true;
+								}
+								return false;
 							}
-							
-							if (node.toString().contains(testName)) {
-								hasTestName = true;
-							}
-							return false;
-						}
-					}).explore(StaticJavaParser.parse(file));
-				} catch (IOException e) {
-					new RuntimeException(e);
+						}).explore(StaticJavaParser.parse(file));
+					} catch (IOException e) {
+						new RuntimeException(e);
+					}
 				}
-			}
-			
-			long elapsedTime = System.currentTimeMillis() - startTime;
-			if (elapsedTime > Config.TIMEOUT_SEARCHING) {
-				System.out.println("timeout");
-				return;
-			}
-		}).explore(new File(dir));
+				
+				long elapsedTime = System.currentTimeMillis() - startTime;
+				if (elapsedTime > Config.TIMEOUT_SEARCHING) {
+					System.out.println("timeout");
+					return;
+				}
+			}).explore(new File(dir));
+		} catch (com.github.javaparser.ParseProblemException e) {
+			return new boolean[]{isClass, isTestClass, hasTestName};
+		}
 		
 		return new boolean[]{isClass, isTestClass, hasTestName};
 	}

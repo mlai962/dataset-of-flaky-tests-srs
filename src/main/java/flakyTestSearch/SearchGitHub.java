@@ -318,7 +318,7 @@ public class SearchGitHub {
 							} 
 						} 
 						
-						if (project.getTestNames() != null) {
+						if (project.getTestNames() != null && !project.getTestNames().isEmpty()) {
 							project.setSkipReason(null);
 							boolean[] buildCheck = RepoUtil.checkWrapper();
 							System.out.println(buildCheck[0] + "has maven or gradle");
@@ -401,12 +401,12 @@ public class SearchGitHub {
 							}
 						}
 						
-						if (project.getTestNames() != null) {
+						if (project.getTestNames() != null && !project.getTestNames().isEmpty()) {
 							project.setSkipReason(null);
 							boolean[] buildCheck = RepoUtil.checkWrapper();
-							System.out.println(buildCheck[0] + "has maven or gradle");
-							System.out.println(buildCheck[1] + "has maven");
-							System.out.println(buildCheck[2] + "has wrapper");
+							System.out.println(buildCheck[0] + " has maven or gradle");
+							System.out.println(buildCheck[1] + " has maven");
+							System.out.println(buildCheck[2] + " has wrapper");
 							
 							if (buildCheck[0]) {
 								System.out.println("checking compile");
