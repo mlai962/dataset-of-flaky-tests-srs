@@ -14,7 +14,7 @@ public class TestFlakyness {
 			try {
 				ProcessBuilder processBuilder = new ProcessBuilder();
 
-				processBuilder.command("sh", "-c", cmd).directory(new File(directory));
+				processBuilder.command("bash", "-l", "-c", cmd).directory(new File(directory));
 
 				Process process = processBuilder.start();
 				
@@ -55,15 +55,25 @@ public class TestFlakyness {
 			return false;
 		}
 	
-	public static TestResult RunSingleTest(Project project, String className, String testName, int numOfRuns) {
+	public static TestResult runSingleTest(Project project, String className, String testName, int numOfRuns, boolean isMaven, boolean hasWrapper) {
 		double failures = 0;
 		double flakyness = 0;
 		
 		int lastSlash = className.lastIndexOf("/");
 		className = className.substring(lastSlash+1, className.length());
 		
-		String cmd = "mvn clean test -Dtest=" + className + "#" + testName;
 		String dir = Config.TEMP_DIR + File.separator + project.getProjectName();
+		String cmd = "";
+		
+		if (isMaven && hasWrapper) {
+			cmd = "./mvnw test -Dtest=" + className + "#" + testName;
+		} else if (isMaven) {
+			cmd = "mvn test -Dtest=" + className + "#" + testName;
+		} else if (hasWrapper) {
+			cmd = "./gradlew test --tests " + className + "." + testName + " -i";
+		} else {
+			cmd = "gradle test --tests " + className + "." + testName + " -i";
+		}
 		
 		for (int i = 0; i < numOfRuns; i++) {
 			boolean testPassed = executeCommand(cmd, dir);

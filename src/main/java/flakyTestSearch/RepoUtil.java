@@ -44,6 +44,7 @@ public class RepoUtil {
 
 		if (isPullRequest) {
 			int classNameLastSlash = testClass.lastIndexOf("/");
+			
 			testClassDir = new File(dir + File.separator + repoName + File.separator + 
 					testClass.substring(0, classNameLastSlash+1) + File.separator);
 	
@@ -73,9 +74,15 @@ public class RepoUtil {
 			BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
 			BufferedReader error = new BufferedReader(new InputStreamReader(process.getErrorStream()));
 
+			boolean buildSuccess = false;
+			
 			String line;
 			while ((line = reader.readLine()) != null) {
 				System.out.println(line);
+				
+				if (line.contains("BUILD SUCCESS")) {
+					buildSuccess = true;
+				}
 			}
 
 			String errorLine;
@@ -83,10 +90,12 @@ public class RepoUtil {
 				System.out.println(errorLine);
 			}
 			
+			if (buildSuccess) {
+				return true;
+			}
+			
 			if (!exitStatus && enableTimeout) {
 				process.destroy();
-				
-				process.waitFor();
 				
 				System.out.println("timeout");
 				
@@ -102,8 +111,12 @@ public class RepoUtil {
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
+			
+			return false;
 		} catch (InterruptedException e) {
 			e.printStackTrace();
+			
+			return false;
 		}
 
 		return exitStatus;
@@ -111,7 +124,9 @@ public class RepoUtil {
 	
 	public static boolean cloneRepo (Project project) {
 		String repoURL = project.getProjectURL();
-		String cloneURL = repoURL.replace("api.", "").replace("repos/", "") + ".git";
+		String cloneURL = repoURL.replace("api.", "").replace("repos/", "");
+		
+		System.out.println(cloneURL);
 
 		String commitHash = project.getCommitHash();
 
@@ -276,7 +291,7 @@ public class RepoUtil {
 					hasEither = true;
 				}
 				
-				if (name.contains("mvnw.cmd") || name.contains("gradlew")) {
+				if (name.contains("mvnw") || name.contains("gradlew")) {
 					hasWrapper = true;
 				}
 				
@@ -293,13 +308,13 @@ public class RepoUtil {
 		boolean builds = false;
 		
 		if (isMaven && hasWrapper) {
-			builds = executeCommand("./mvnw install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true", repoDir, false);
+			builds = executeCommand("./mvnw install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true", repoDir, true);
 		} else if (isMaven) {
-			builds = executeCommand("mvn install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true", repoDir, false);
+			builds = executeCommand(Config.MVN_DIR + " install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true", repoDir, true);
 		} else if (hasWrapper) {
-			builds = executeCommand("./gradlew build -x test -x javadoc", repoDir, false);
+			builds = executeCommand("./gradlew build -x test -x javadoc", repoDir, true);
 		} else {
-			builds = executeCommand("gradle build -x test -x javadoc", repoDir, false);
+			builds = executeCommand("gradle build -x test -x javadoc", repoDir, true);
 		}
 		
 		System.out.println(builds);

@@ -288,6 +288,8 @@ public class SearchGitHub {
 						HashMap<String, List<String>> allTestNames = new HashMap<>();
 						
 						ArrayList<String> changedLines = new ArrayList<>();
+						
+						List<String> testNames = new ArrayList<>();
 
 						if (!testClasses.isEmpty()) {
 							project.setClasses(testClasses);
@@ -304,11 +306,14 @@ public class SearchGitHub {
 									isClass = RepoUtil.checkClassExists(project);
 
 									if (isClass && !changedLines.isEmpty()) {
-										List<String> testNames = RepoUtil.findTestName(project, changedLines);
+										testNames = RepoUtil.findTestName(project, changedLines);
 
 										if (!testNames.isEmpty()) {
 											testNames = testNames.stream().distinct().collect(Collectors.toList());
 
+											int classNameLastSlash = testClass.lastIndexOf("/");
+											testClass = testClass.substring(classNameLastSlash+1, testClass.length());
+											
 											allTestNames.put(testClass, testNames);
 											
 											project.setTestNames(allTestNames);
@@ -321,24 +326,22 @@ public class SearchGitHub {
 						if (project.getTestNames() != null && !project.getTestNames().isEmpty()) {
 							project.setSkipReason(null);
 							boolean[] buildCheck = RepoUtil.checkWrapper();
-							System.out.println(buildCheck[0] + "has maven or gradle");
-							System.out.println(buildCheck[1] + "has maven");
-							System.out.println(buildCheck[2] + "has wrapper");
+							System.out.println(buildCheck[0] + " has maven or gradle");
+							System.out.println(buildCheck[1] + " has maven");
+							System.out.println(buildCheck[2] + " has wrapper");
 							
 							if (buildCheck[0]) {
 								System.out.println("checking compile");
-//								boolean builds = RepoUtil.checkCompile(buildCheck[1], buildCheck[2]);
+								boolean builds = RepoUtil.checkCompile(buildCheck[1], buildCheck[2]);
 							}
-						} else if (!testClasses.isEmpty()) {
+						} else if (testClasses.isEmpty()) {
 							project.setSkipReason("no test classes found in diff");
 						} else if (!isCloned) {
 							project.setSkipReason("unsuccessful clone");
 						} else if (!isClass) {
 							project.setSkipReason("no test classes found after cloning");
-						} else if (!isTestClass) {
-							project.setSkipReason("classes found are not test classes");
-						} else if (!hasTestName) {
-							project.setSkipReason("test not found in test class");
+						} else if (testNames.isEmpty()) {
+							project.setSkipReason("no tests found in classes from diff");
 						}
 					} else {
 						JSONArray branchNames = getBranchNames(currentProject);
@@ -410,7 +413,7 @@ public class SearchGitHub {
 							
 							if (buildCheck[0]) {
 								System.out.println("checking compile");
-//								boolean builds = RepoUtil.checkCompile(buildCheck[1], buildCheck[2]);
+								boolean builds = RepoUtil.checkCompile(buildCheck[1], buildCheck[2]);
 							}
 						} else if (classDotTests.isEmpty()) {
 							project.setSkipReason("no classes and tests found in issue title or body");
