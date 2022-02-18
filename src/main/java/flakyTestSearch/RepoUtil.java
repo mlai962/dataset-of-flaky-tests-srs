@@ -186,8 +186,6 @@ public class RepoUtil {
 				return;
 			}
 		}).explore(testClassDir);
-
-		HashMap<String, List<String>> allTestNames = new HashMap<>();
 		
 		for (String num : lineNums) {
 			int changedLine = Integer.parseInt(num);
@@ -239,6 +237,7 @@ public class RepoUtil {
 	
 	public static boolean[] checkIssueClassExistsAndIfTestClass(Project project, String testClass, String testName) {
 		long startTime = System.currentTimeMillis();
+		List<String> methodNames = new ArrayList<>();
 		
 		try {
 			new DirExplorer((level, path, file) -> path.endsWith(".java"), (level, path, file) -> {
@@ -257,9 +256,23 @@ public class RepoUtil {
 								if (node.toString().contains(testName)) {
 									hasTestName = true;
 								}
+								
 								return false;
 							}
 						}).explore(StaticJavaParser.parse(file));
+					} catch (IOException e) {
+						new RuntimeException(e);
+					}
+					
+					try {
+						new VoidVisitorAdapter<Object>() {
+							@Override
+							public void visit(MethodDeclaration n, Object arg) {
+								super.visit(n, arg);
+								String anyMethod = n.getNameAsString();
+								methodNames.add(anyMethod);
+							}
+						}.visit(StaticJavaParser.parse(file), null);
 					} catch (IOException e) {
 						new RuntimeException(e);
 					}
@@ -274,6 +287,8 @@ public class RepoUtil {
 		} catch (com.github.javaparser.ParseProblemException e) {
 			return new boolean[]{isClass, isTestClass, hasTestName};
 		}
+		
+		project.setAllTestNames(testClass, methodNames);
 		
 		return new boolean[]{isClass, isTestClass, hasTestName};
 	}
