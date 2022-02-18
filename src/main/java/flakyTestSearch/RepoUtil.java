@@ -82,6 +82,8 @@ public class RepoUtil {
 				
 				if (line.contains("BUILD SUCCESS")) {
 					buildSuccess = true;
+				} else if (line.contains("BUILD FAILURE")) {
+					return false;
 				}
 			}
 
@@ -109,11 +111,7 @@ public class RepoUtil {
 				
 				return false;
 			}
-		} catch (IOException e) {
-			e.printStackTrace();
-			
-			return false;
-		} catch (InterruptedException e) {
+		} catch (Exception e) {
 			e.printStackTrace();
 			
 			return false;

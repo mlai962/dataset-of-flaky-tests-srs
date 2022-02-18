@@ -8,7 +8,8 @@ import java.util.concurrent.TimeUnit;
 
 public class TestFlakyness {
 	// Method below taken from https://mkyong.com/java/how-to-execute-shell-command-from-java/
-		public static boolean executeCommand(String cmd, String directory) {
+		public static int executeCommand(String cmd, String directory) {
+			int returnValue = 1;
 			int exitValue = 0;
 			
 			try {
@@ -26,8 +27,10 @@ public class TestFlakyness {
 				String line;
 				while ((line = reader.readLine()) != null) {
 					System.out.println(line);
-					if (line.contains("BUILD SUCCESS")) {
-						return true;
+					if (line.contains("Failures: 1") || line.contains("Errors: 1")) {
+						returnValue = 0;
+					} else if (line.contains("BUILD FAILURE")) {
+						returnValue = 2;
 					}
 					
 				}
@@ -42,17 +45,13 @@ public class TestFlakyness {
 					
 					System.out.println("command execution failure");
 					
-					return false;
-				} else {
-					return true;
+					returnValue = 2;
 				}
-			} catch (IOException e) {
+			} catch (Exception e) {
 				e.printStackTrace();
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
+			} 
 			
-			return false;
+			return returnValue;
 		}
 	
 	public static TestResult runSingleTest(Project project, String className, String testName, int numOfRuns, boolean isMaven, boolean hasWrapper) {
@@ -68,7 +67,7 @@ public class TestFlakyness {
 		if (isMaven && hasWrapper) {
 			cmd = "./mvnw test -Dtest=" + className + "#" + testName;
 		} else if (isMaven) {
-			cmd = "mvn test -Dtest=" + className + "#" + testName;
+			cmd = Config.MVN_DIR + " test -Dtest=" + className + "#" + testName;
 		} else if (hasWrapper) {
 			cmd = "./gradlew test --tests " + className + "." + testName + " -i";
 		} else {
@@ -76,15 +75,17 @@ public class TestFlakyness {
 		}
 		
 		for (int i = 0; i < numOfRuns; i++) {
-			boolean testPassed = executeCommand(cmd, dir);
+			int result = executeCommand(cmd, dir);
 			
-			if (!testPassed) {
+			if (result == 0) {
 				failures++;
+			} else if (result == 2) {
+				return new TestResult(className, testName, 0, false, true);
 			}
 		}
 		
 		flakyness = failures / numOfRuns;
 		
-		return new TestResult(className, testName, flakyness, false);
+		return new TestResult(className, testName, flakyness, false, false);
 	}
 }

@@ -19,7 +19,7 @@ public class SearchGitHub {
 	public static HttpResponse<JsonNode> apiCall (String apiURL) {
 		HttpResponse<JsonNode> responseBody
 				= Unirest.get(apiURL)
-				.basicAuth("mlai962", "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")
+				.basicAuth("mlai962", "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")
 				.header("accept", "application/vnd.github.v3+json")
 				.asJson();
 		
@@ -29,7 +29,7 @@ public class SearchGitHub {
 	public static HttpResponse<JsonNode> apiCall (String apiURL, Map<String, Object> queryMap) {
 		HttpResponse<JsonNode> responseBody
 				= Unirest.get(apiURL)
-				.basicAuth("mlai962", "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")
+				.basicAuth("mlai962", "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")
 				.header("accept", "application/vnd.github.v3+json")
 				.queryString(queryMap)
 				.asJson();
@@ -96,7 +96,11 @@ public class SearchGitHub {
 	
 	public static String getIssueCommitHash (JSONObject currentProject, JSONArray branchNames) {
 		HashMap<String, Object> queryMap = new HashMap<>();
-		queryMap.put("sha", searchIssueBranchName(currentProject, branchNames));
+		try {
+			queryMap.put("sha", searchIssueBranchName(currentProject, branchNames));
+		} catch (kong.unirest.json.JSONException e) {
+			
+		}
 		queryMap.put("until", getIssueCreationDate(currentProject));
 		
 		JSONArray issueCommits
@@ -121,7 +125,7 @@ public class SearchGitHub {
 	public static String getPullRequestDiff (JSONObject currentProject) {
 		String pullRequestDiff
 				= Unirest.get(getPullRequestURL(currentProject)) // Using the pull request URL to find its diff
-				.basicAuth("mlai962", "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")
+				.basicAuth("mlai962", "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")
 				.header("Accept", "application/vnd.github.v3.diff") // Getting the diff
 				.asString()
 				.getBody();
@@ -273,6 +277,9 @@ public class SearchGitHub {
 					boolean hasTestName = false;
 					
 					ArrayList<String> testClasses = new ArrayList<>();
+					
+					TestResult testResult = new TestResult(null, null, 0, false, false);
+					ArrayList<TestResult> testResults = new ArrayList<>();
 
 					if (currentProject.has("pull_request")) {
 						String pullRequestHash = getPullRequestCommitHash(currentProject);
@@ -330,9 +337,36 @@ public class SearchGitHub {
 							System.out.println(buildCheck[1] + " has maven");
 							System.out.println(buildCheck[2] + " has wrapper");
 							
-							if (buildCheck[0]) {
+							boolean hasMavenOrGradle = buildCheck[0];
+							boolean hasMaven = buildCheck[1];
+							boolean hasWrapper = buildCheck[2];
+							
+							if (hasMavenOrGradle) {
 								System.out.println("checking compile");
 								boolean builds = RepoUtil.checkCompile(buildCheck[1], buildCheck[2]);
+								
+								if (builds) {
+									for (String className : project.getTestNames().keySet()) {
+										for (String testName : project.getTestNames().get(className)) {
+											System.out.println(className + " " + testName);
+											testResult = TestFlakyness.runSingleTest(project, className, testName, 10, hasMaven, hasWrapper);
+											
+											if (!testResult.getIfTestFailCompile()) {
+												testResults.add(testResult);
+											}
+										}
+									}
+									
+									if (!testResults.isEmpty()) {
+										project.setTestResults(testResults);
+									} else {
+										project.setSkipReason("tests did not compile");
+									}
+								} else {
+									project.setSkipReason("compilation failure");
+								}
+							} else {
+								project.setSkipReason("no maven or gradle files");
 							}
 						} else if (testClasses.isEmpty()) {
 							project.setSkipReason("no test classes found in diff");
@@ -411,9 +445,36 @@ public class SearchGitHub {
 							System.out.println(buildCheck[1] + " has maven");
 							System.out.println(buildCheck[2] + " has wrapper");
 							
-							if (buildCheck[0]) {
+							boolean hasMavenOrGradle = buildCheck[0];
+							boolean hasMaven = buildCheck[1];
+							boolean hasWrapper = buildCheck[2];
+							
+							if (hasMavenOrGradle) {
 								System.out.println("checking compile");
 								boolean builds = RepoUtil.checkCompile(buildCheck[1], buildCheck[2]);
+								
+								if (builds) {
+									for (String className : project.getTestNames().keySet()) {
+										for (String testName : project.getTestNames().get(className)) {
+											System.out.println(className + " " + testName);
+											testResult = TestFlakyness.runSingleTest(project, className, testName, 10, hasMaven, hasWrapper);
+											
+											if (!testResult.getIfTestFailCompile()) {
+												testResults.add(testResult);
+											}
+										}
+									}
+									
+									if (!testResults.isEmpty()) {
+										project.setTestResults(testResults);
+									} else {
+										project.setSkipReason("tests did not compile");
+									}
+								} else {
+									project.setSkipReason("compilation failure");
+								}
+							} else {
+								project.setSkipReason("no maven or gradle files");
 							}
 						} else if (classDotTests.isEmpty()) {
 							project.setSkipReason("no classes and tests found in issue title or body");
@@ -438,6 +499,11 @@ public class SearchGitHub {
 							System.out.println(className);
 							for (String Name : project.getTestNames().get(className)) {
 								System.out.println(Name);
+								for (TestResult result : project.getTestResults()) {
+									System.out.println(result.getClassName());
+									System.out.println(result.getTestName());
+									System.out.println(result.getFlakyness());
+								}
 							}
 						}
 					}
