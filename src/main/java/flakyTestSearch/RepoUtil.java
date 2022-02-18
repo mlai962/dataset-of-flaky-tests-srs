@@ -6,8 +6,10 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import org.eclipse.jgit.util.FileUtils;
 
@@ -185,8 +187,11 @@ public class RepoUtil {
 			}
 		}).explore(testClassDir);
 
+		HashMap<String, List<String>> allTestNames = new HashMap<>();
+		
 		for (String num : lineNums) {
 			int changedLine = Integer.parseInt(num);
+			List<String> methodNames = new ArrayList<>();
 			
 			if (isTestClass) {
 				new DirExplorer((level, path, file) -> path.endsWith(".java"), (level, path, file) -> {
@@ -204,6 +209,9 @@ public class RepoUtil {
 									if (!(method == null)) {
 										testNames.add(method);
 									}
+									
+									String anyMethod = n.getNameAsString();
+									methodNames.add(anyMethod);
 								}
 							}.visit(StaticJavaParser.parse(file), null);
 						} catch (IOException e) {
@@ -218,6 +226,8 @@ public class RepoUtil {
 					}
 				}).explore(testClassDir);
 			}
+			
+			project.setAllTestNames(testClassName, methodNames);
 			
 			if (!testNames.isEmpty()) {
 				finalTestNames.add(testNames.get(testNames.size()-1));

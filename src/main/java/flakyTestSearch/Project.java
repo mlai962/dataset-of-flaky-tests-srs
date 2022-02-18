@@ -2,6 +2,7 @@ package main.java.flakyTestSearch;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class Project {
 	private String projectURL;
@@ -11,6 +12,7 @@ public class Project {
 	private String skipReason;
 	private String projectName;
 	private List<TestResult> testResults;
+	private HashMap<String, List<String>> allTestNames = new HashMap<>();;
 	
 	public Project(String projectURL, String commitHash, List<String> classes, HashMap<String, List<String>> testNames) {
 		this.projectURL = projectURL;
@@ -74,5 +76,16 @@ public class Project {
 
 	public void setTestResults(List<TestResult> testResults) {
 		this.testResults = testResults;
+	}
+
+	public HashMap<String, List<String>> getAllTestNames() {
+		return allTestNames;
+	}
+
+	public void setAllTestNames(String className, List<String> testNames) {
+		testNames = testNames.stream().distinct().collect(Collectors.toList());
+		HashMap<String, List<String>> temp = this.getAllTestNames();
+		temp.put(className, testNames);
+		this.allTestNames = temp;
 	}
 }
