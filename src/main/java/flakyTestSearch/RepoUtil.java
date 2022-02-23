@@ -33,7 +33,7 @@ public class RepoUtil {
 	public static void deleteTempRepoDir() {
 		if (!repoName.equals("")) {
 			System.out.println(repoName);
-			executeCommand("rm -rf " + repoName, dir, false);
+			executeCommand("rm -rf " + repoName, dir);
 		}
 	}
 
@@ -56,9 +56,8 @@ public class RepoUtil {
 	}
 	
 	// Method below taken from https://mkyong.com/java/how-to-execute-shell-command-from-java/
-	public static boolean executeCommand(String cmd, String directory, boolean enableTimeout) {
+	public static boolean executeCommand(String cmd, String directory) {
 		boolean exitStatus = false;
-		int exitValue = 0;
 		
 		try {
 			ProcessBuilder processBuilder = new ProcessBuilder();
@@ -67,16 +66,12 @@ public class RepoUtil {
 
 			Process process = processBuilder.start();
 			
-			if (enableTimeout) {
-				exitStatus = process.waitFor(Config.TIMEOUT_CLONING, TimeUnit.SECONDS);
-			} else {
-				exitValue = process.waitFor();
-			}
+			exitStatus = process.waitFor(Config.TIMEOUT_CLONING, TimeUnit.SECONDS);
 			
 			BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
 			BufferedReader error = new BufferedReader(new InputStreamReader(process.getErrorStream()));
 
-			boolean buildSuccess = false;
+			boolean buildSuccess = true;
 			
 			String line;
 			while ((line = reader.readLine()) != null) {
@@ -84,8 +79,8 @@ public class RepoUtil {
 				
 				if (line.contains("BUILD SUCCESS")) {
 					buildSuccess = true;
-				} else if (line.contains("BUILD FAILURE")) {
-					return false;
+				} else if (line.contains("BUILD FAILURE") || line.contains("Build failed")) {
+					buildSuccess = false;
 				}
 			}
 
@@ -94,23 +89,21 @@ public class RepoUtil {
 				System.out.println(errorLine);
 			}
 			
-			if (buildSuccess) {
-				return true;
-			}
-			
-			if (!exitStatus && enableTimeout) {
+			if (!exitStatus) {
 				process.destroy();
 				
 				System.out.println("timeout");
 				
+				if (buildSuccess) {
+					return true;
+				}
+				
 				return exitStatus;
 			}
 			
-			if (exitValue != 0 && !enableTimeout) {
-				process.destroy();
-				
-				System.out.println("command execution failure");
-				
+			if (buildSuccess) {
+				return true;
+			} else if (!buildSuccess) {
 				return false;
 			}
 		} catch (Exception e) {
@@ -130,11 +123,11 @@ public class RepoUtil {
 
 		String commitHash = project.getCommitHash();
 
-		boolean isCloned = executeCommand("git clone " + cloneURL, dir, true);
+		boolean isCloned = executeCommand("git clone " + cloneURL, dir);
 
 		if (isCloned) {
 			return executeCommand("git reset --hard " + commitHash, 
-					dir + File.separator + project.getProjectName(), true);
+					dir + File.separator + project.getProjectName());
 		} else {
 			return false;
 		}
@@ -331,13 +324,13 @@ public class RepoUtil {
 		boolean builds = false;
 		
 		if (isMaven && hasWrapper) {
-			builds = executeCommand("./mvnw install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true", repoDir, true);
+			builds = executeCommand("./mvnw install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true", repoDir);
 		} else if (isMaven) {
-			builds = executeCommand(Config.MVN_DIR + " install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true", repoDir, true);
+			builds = executeCommand(Config.MVN_DIR + " install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true", repoDir);
 		} else if (hasWrapper) {
-			builds = executeCommand("./gradlew build -x test -x javadoc", repoDir, true);
+			builds = executeCommand("./gradlew build -x test -x javadoc", repoDir);
 		} else {
-			builds = executeCommand("gradle build -x test -x javadoc", repoDir, true);
+			builds = executeCommand("gradle build -x test -x javadoc", repoDir);
 		}
 		
 		System.out.println(builds);

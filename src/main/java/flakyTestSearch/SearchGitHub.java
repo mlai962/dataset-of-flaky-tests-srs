@@ -260,6 +260,8 @@ public class SearchGitHub {
 			jsonResponse = searchKeyword(keyword, pageNum);
 			
 			jsonObject = jsonResponse.getBody().getObject();
+			
+			System.out.println(jsonResponse.getBody().toPrettyString());
 
 			if (jsonObject.length() == 3) {
 				jsonArray = jsonObject.getJSONArray("items");
@@ -344,19 +346,27 @@ public class SearchGitHub {
 							if (hasMavenOrGradle) {
 								System.out.println("checking compile");
 								boolean builds = RepoUtil.checkCompile(buildCheck[1], buildCheck[2]);
-								
+
 								if (builds) {
 									for (String className : project.getTestNames().keySet()) {
 										for (String testName : project.getTestNames().get(className)) {
 											System.out.println(className + " " + testName);
 											testResult = TestFlakyness.runSingleTest(project, className, testName, 10, hasMaven, hasWrapper);
-											
+
 											if (!testResult.getIfTestFailCompile()) {
 												testResults.add(testResult);
+											} 
+
+											if (testResult.getFlakyness() == 1 || testResult.getFlakyness() == 0) {
+												testResult = TestFlakyness.runMultipleTests(project, className, testName, 10, hasMaven, hasWrapper);
+
+												if (!testResult.getIfTestFailCompile()) {
+													testResults.add(testResult);
+												}
 											}
 										}
 									}
-									
+
 									if (!testResults.isEmpty()) {
 										project.setTestResults(testResults);
 									} else {
@@ -499,12 +509,15 @@ public class SearchGitHub {
 							System.out.println(className);
 							for (String Name : project.getTestNames().get(className)) {
 								System.out.println(Name);
-								for (TestResult result : project.getTestResults()) {
-									System.out.println(result.getClassName());
-									System.out.println(result.getTestName());
-									System.out.println(result.getFlakyness());
-								}
+								
 							}
+						}
+					}
+					if (project.getTestResults() != null) {
+						for (TestResult result : project.getTestResults()) {
+							System.out.println(result.getClassName());
+							System.out.println(result.getTestName());
+							System.out.println(result.getFlakyness());
 						}
 					}
 					System.out.println(project.getSkipReason());
