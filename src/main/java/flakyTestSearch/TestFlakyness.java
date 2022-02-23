@@ -2,12 +2,10 @@ package main.java.flakyTestSearch;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 public class TestFlakyness {
 	// Method below taken from https://mkyong.com/java/how-to-execute-shell-command-from-java/
@@ -118,8 +116,8 @@ public class TestFlakyness {
 		List<String> testNames = project.getAllTestNames().get(className);
 		int numTests = testNames.size();
 		
-		if (numTests > 4) {
-			numTests = 4;
+		if (numTests > Config.MAX_TESTS) {
+			numTests = Config.MAX_TESTS;
 		}
 		
 		List<String> order = new ArrayList<>();

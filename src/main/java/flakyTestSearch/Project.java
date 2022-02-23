@@ -12,7 +12,7 @@ public class Project {
 	private String skipReason;
 	private String projectName;
 	private List<TestResult> testResults;
-	private HashMap<String, List<String>> allTestNames = new HashMap<>();;
+	private HashMap<String, List<String>> allTestNames = new HashMap<>();
 	
 	public Project(String projectURL, String commitHash, List<String> classes, HashMap<String, List<String>> testNames) {
 		this.projectURL = projectURL;

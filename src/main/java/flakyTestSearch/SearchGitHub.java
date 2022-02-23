@@ -2,7 +2,6 @@ package main.java.flakyTestSearch;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -351,14 +350,14 @@ public class SearchGitHub {
 									for (String className : project.getTestNames().keySet()) {
 										for (String testName : project.getTestNames().get(className)) {
 											System.out.println(className + " " + testName);
-											testResult = TestFlakyness.runSingleTest(project, className, testName, 10, hasMaven, hasWrapper);
+											testResult = TestFlakyness.runSingleTest(project, className, testName, Config.SINGLE_TEST_RUNS, hasMaven, hasWrapper);
 
 											if (!testResult.getIfTestFailCompile()) {
 												testResults.add(testResult);
 											} 
 
 											if (testResult.getFlakyness() == 1 || testResult.getFlakyness() == 0) {
-												testResult = TestFlakyness.runMultipleTests(project, className, testName, 10, hasMaven, hasWrapper);
+												testResult = TestFlakyness.runMultipleTests(project, className, testName, Config.MULTI_TEST_RUNS, hasMaven, hasWrapper);
 
 												if (!testResult.getIfTestFailCompile()) {
 													testResults.add(testResult);
@@ -467,14 +466,22 @@ public class SearchGitHub {
 									for (String className : project.getTestNames().keySet()) {
 										for (String testName : project.getTestNames().get(className)) {
 											System.out.println(className + " " + testName);
-											testResult = TestFlakyness.runSingleTest(project, className, testName, 10, hasMaven, hasWrapper);
-											
+											testResult = TestFlakyness.runSingleTest(project, className, testName, Config.SINGLE_TEST_RUNS, hasMaven, hasWrapper);
+
 											if (!testResult.getIfTestFailCompile()) {
 												testResults.add(testResult);
+											} 
+
+											if (testResult.getFlakyness() == 1 || testResult.getFlakyness() == 0) {
+												testResult = TestFlakyness.runMultipleTests(project, className, testName, Config.MULTI_TEST_RUNS, hasMaven, hasWrapper);
+
+												if (!testResult.getIfTestFailCompile()) {
+													testResults.add(testResult);
+												}
 											}
 										}
 									}
-									
+
 									if (!testResults.isEmpty()) {
 										project.setTestResults(testResults);
 									} else {

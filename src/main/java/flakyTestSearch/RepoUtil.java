@@ -6,17 +6,13 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-
-import org.eclipse.jgit.util.FileUtils;
 
 import com.github.javaparser.StaticJavaParser;
-import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
-import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.Node;
+import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
 
 public class RepoUtil {
 	private static String dir = Config.TEMP_DIR;
@@ -297,6 +293,7 @@ public class RepoUtil {
 		
 		File repoDir = new File(dir + File.separator + repoName);
 		
+		@SuppressWarnings("unused")
 		File[] matches = repoDir.listFiles(new FilenameFilter() {
 			public boolean accept(File dir, String name) {
 				if (name.contains("pom.xml")) {
