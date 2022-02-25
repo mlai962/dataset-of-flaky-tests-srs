@@ -75,7 +75,7 @@ public class RepoUtil {
 				
 				if (line.contains("BUILD SUCCESS")) {
 					buildSuccess = true;
-				} else if (line.contains("BUILD FAILURE") || line.contains("Build failed")) {
+				} else if (line.contains("BUILD FAIL")) {
 					buildSuccess = false;
 				}
 			}
@@ -98,13 +98,15 @@ public class RepoUtil {
 			}
 			
 			if (buildSuccess) {
+				System.out.println("Build success");
 				return true;
 			} else if (!buildSuccess) {
+				System.out.println("Build failure");
 				return false;
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
-			
+			System.out.println("EXCEPTION");
 			return false;
 		}
 
@@ -321,13 +323,13 @@ public class RepoUtil {
 		boolean builds = false;
 		
 		if (isMaven && hasWrapper) {
-			builds = executeCommand("./mvnw install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true", repoDir);
+			builds = executeCommand("./mvnw clean install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true", repoDir);
 		} else if (isMaven) {
-			builds = executeCommand(Config.MVN_DIR + " install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true", repoDir);
+			builds = executeCommand(Config.MVN_DIR + " clean install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true", repoDir);
 		} else if (hasWrapper) {
-			builds = executeCommand("./gradlew build -x test -x javadoc", repoDir);
+			builds = executeCommand("./gradlew clean build -x test -x javadoc", repoDir);
 		} else {
-			builds = executeCommand("gradle build -x test -x javadoc", repoDir);
+			builds = executeCommand("gradle clean build -x test -x javadoc", repoDir);
 		}
 		
 		System.out.println(builds);

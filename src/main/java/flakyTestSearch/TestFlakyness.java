@@ -24,6 +24,10 @@ public class TestFlakyness {
 			testName = testName.substring(0, index+1);
 		}
 
+		System.out.println(cmd);
+		System.out.println(testName);
+		System.out.println(isSingleTest);
+		
 		try {
 			ProcessBuilder processBuilder = new ProcessBuilder();
 
@@ -40,11 +44,15 @@ public class TestFlakyness {
 			
 			while ((line = reader.readLine()) != null) {
 				System.out.println(line);
-				if (line.contains("Failures: 1") || line.contains("Errors: 1")) {
-					if (isSingleTest || (!isSingleTest && line.contains(testName))) {
-						returnValue = 0;
-					}
-				} else if (line.contains("BUILD FAILURE")) {
+				
+				boolean mavenTestFailure = line.contains(testName + "(") && line.contains("<<< FAILURE!");
+				boolean mavenTestError = line.contains(testName + "(") && line.contains("<<< ERROR!");
+				boolean gradleTestFailure = line.contains(testName + "()" + " FAILED");
+				boolean gradleTestError = line.contains(testName + "()" + " ERROR");
+
+				if (mavenTestFailure || mavenTestError || gradleTestFailure || gradleTestError) {
+					returnValue = 0;
+				} else if (returnValue != 0 && line.contains("BUILD FAILURE")) {
 					returnValue = 2;
 				}
 			}
@@ -52,6 +60,12 @@ public class TestFlakyness {
 			String errorLine;
 			while ((errorLine = error.readLine()) != null) {
 				System.out.println(errorLine);
+			}
+			
+			System.out.println("RETURN VALUE " + returnValue);
+			
+			if (returnValue == 0) {
+				return returnValue;
 			}
 
 			if (exitValue != 0) {
@@ -76,13 +90,13 @@ public class TestFlakyness {
 		String cmd = "";
 
 		if (isMaven && hasWrapper) {
-			cmd = "./mvnw test -Dtest=" + className + "#" + testName;
+			cmd = "./mvnw clean test -Dtest=" + className + "#" + testName;
 		} else if (isMaven) {
-			cmd = Config.MVN_DIR + " test -Dtest=" + className + "#" + testName;
+			cmd = Config.MVN_DIR + " clean test -Dtest=" + className + "#" + testName;
 		} else if (hasWrapper) {
-			cmd = "./gradlew test --tests " + className + "." + testName + " -i";
+			cmd = "./gradlew clean test --tests " + className + "." + testName + " -i";
 		} else {
-			cmd = "gradle test --tests " + className + "." + testName + " -i";
+			cmd = "gradle clean test --tests " + className + "." + testName + " -i";
 		}
 
 		if (testName.contains(".") || testName.contains("+")) {
