@@ -270,6 +270,10 @@ public class SearchGitHub {
 
 					String projectURL = currentProject.getString("repository_url");
 					
+					if (projectURL.contains("pulsar") || projectURL.contains("trino") || projectURL.contains("questdb")) {
+						continue;
+					}
+					
 					Project project = new Project(projectURL, null, null, null);
 					
 					boolean isCloned = false;
@@ -356,13 +360,13 @@ public class SearchGitHub {
 												testResults.add(testResult);
 											} 
 
-											if (testResult.getFlakyness() == 1 || testResult.getFlakyness() == 0) {
-												testResult = TestFlakyness.runMultipleTests(project, className, testName, Config.MULTI_TEST_RUNS, hasMaven, hasWrapper);
-
-												if (!testResult.getIfTestFailCompile()) {
-													testResults.add(testResult);
-												}
-											}
+//											if (testResult.getFlakyness() == 1 || testResult.getFlakyness() == 0) {
+//												testResult = TestFlakyness.runMultipleTests(project, className, testName, Config.MULTI_TEST_RUNS, hasMaven, hasWrapper);
+//
+//												if (!testResult.getIfTestFailCompile()) {
+//													testResults.add(testResult);
+//												}
+//											}
 										}
 									}
 
@@ -472,13 +476,13 @@ public class SearchGitHub {
 												testResults.add(testResult);
 											} 
 
-											if (testResult.getFlakyness() == 1 || testResult.getFlakyness() == 0) {
-												testResult = TestFlakyness.runMultipleTests(project, className, testName, Config.MULTI_TEST_RUNS, hasMaven, hasWrapper);
-
-												if (!testResult.getIfTestFailCompile()) {
-													testResults.add(testResult);
-												}
-											}
+//											if (testResult.getFlakyness() == 1 || testResult.getFlakyness() == 0) {
+//												testResult = TestFlakyness.runMultipleTests(project, className, testName, Config.MULTI_TEST_RUNS, hasMaven, hasWrapper);
+//
+//												if (!testResult.getIfTestFailCompile()) {
+//													testResults.add(testResult);
+//												}
+//											}
 										}
 									}
 

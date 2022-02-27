@@ -6,22 +6,18 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public class TestFlakyness {
+	public static String multiTestName = "";
+	
 	// Method below taken from https://mkyong.com/java/how-to-execute-shell-command-from-java/
 	public static int executeCommand(String cmd, String directory, String testName, boolean isSingleTest) {
 		int returnValue = 1;
-		int exitValue = 0;
+		boolean exitValue = false;
 		
 		if (!isSingleTest) {
-			int index;
-			if (testName.contains("+")) {
-				index = testName.indexOf("+");
-			} else {
-				index = testName.indexOf("-")-2;
-			}
-
-			testName = testName.substring(0, index+1);
+			testName = multiTestName;
 		}
 
 		System.out.println(cmd);
@@ -35,7 +31,7 @@ public class TestFlakyness {
 
 			Process process = processBuilder.start();
 
-			exitValue = process.waitFor();
+			exitValue = process.waitFor(Config.TIMEOUT_CLONING, TimeUnit.SECONDS);
 
 			BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
 			BufferedReader error = new BufferedReader(new InputStreamReader(process.getErrorStream()));
@@ -68,7 +64,7 @@ public class TestFlakyness {
 				return returnValue;
 			}
 
-			if (exitValue != 0) {
+			if (!exitValue) {
 				process.destroy();
 
 				System.out.println("command execution failure");
@@ -136,9 +132,14 @@ public class TestFlakyness {
 		
 		List<String> order = new ArrayList<>();
 		
+		System.out.println("numorders " + numOrders);
+		
 		for (int i = 0; i < numOrders; i++) {
+			order = new ArrayList<>();
+			
 			while(!order.contains(testName)) {
 				for (int j = 0; j < numTests; j++) {
+					System.out.println("adding " + testNames.get(j));
 					order.add(testNames.get(j));
 				}
 				
@@ -152,6 +153,8 @@ public class TestFlakyness {
 	}
 	
 	public static TestResult runMultipleTests(Project project, String className, String testName, int numOfRuns, boolean isMaven, boolean hasWrapper) {
+		multiTestName = testName;
+		
 		double failures = 0;
 		double flakyness = 0;
 		
@@ -170,25 +173,29 @@ public class TestFlakyness {
 				if (isMaven) {
 					if (first) {
 						cmd = order.get(j);
-					} else {
 						first = false;
+					} else {
 						cmd = cmd + "+" + order.get(j);
 					}
 				} else {
 					if (first) {
 						cmd = order.get(j);
-					} else {
 						first = false;
+					} else {
 						cmd = cmd + " --tests " + className + "." + order.get(j);
 					}
  				}
+				
+				System.out.println("cmd " + cmd);
 			}
 			
 			testResult = runSingleTest(project, className, cmd, 1, isMaven, hasWrapper);
 			
 			if (testResult.getIfTestFailCompile()) {
+				System.out.println("UIHAERIFA");
 				return new TestResult(className, testName, 0, true, true);
-			} else if (testResult.getFlakyness() == 0) {
+			} else if (testResult.getFlakyness() == 1) {
+				System.out.println("failure ");
 				failures++;
 			} 
 		}
