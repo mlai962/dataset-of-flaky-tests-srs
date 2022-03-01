@@ -270,7 +270,11 @@ public class SearchGitHub {
 
 					String projectURL = currentProject.getString("repository_url");
 					
-					if (projectURL.contains("pulsar") || projectURL.contains("trino") || projectURL.contains("questdb") || projectURL.contains("reactor-pool") || projectURL.contains("spring-data-gemfire")) {
+					if (projectURL.contains("pulsar") || 
+							projectURL.contains("trino") || 
+							projectURL.contains("questdb") || 
+							projectURL.contains("reactor-pool") || 
+							projectURL.contains("spring-data-gemfire")) {
 						continue;
 					}
 					
@@ -285,6 +289,10 @@ public class SearchGitHub {
 					
 					TestResult testResult = new TestResult(null, null, 0, false, false);
 					ArrayList<TestResult> testResults = new ArrayList<>();
+					
+					ArrayList<String> classDotTests = new ArrayList<>();
+					
+					List<String> testNames = new ArrayList<>();
 
 					if (currentProject.has("pull_request")) {
 						String pullRequestHash = getPullRequestCommitHash(currentProject);
@@ -300,8 +308,6 @@ public class SearchGitHub {
 						HashMap<String, List<String>> allTestNames = new HashMap<>();
 						
 						ArrayList<String> changedLines = new ArrayList<>();
-						
-						List<String> testNames = new ArrayList<>();
 
 						if (!testClasses.isEmpty()) {
 							project.setClasses(testClasses);
@@ -334,62 +340,6 @@ public class SearchGitHub {
 								}
 							} 
 						} 
-						
-						if (project.getTestNames() != null && !project.getTestNames().isEmpty()) {
-							project.setSkipReason(null);
-							boolean[] buildCheck = RepoUtil.checkWrapper();
-							System.out.println(buildCheck[0] + " has maven or gradle");
-							System.out.println(buildCheck[1] + " has maven");
-							System.out.println(buildCheck[2] + " has wrapper");
-							
-							boolean hasMavenOrGradle = buildCheck[0];
-							boolean hasMaven = buildCheck[1];
-							boolean hasWrapper = buildCheck[2];
-							
-							if (hasMavenOrGradle) {
-								System.out.println("checking compile");
-								boolean builds = RepoUtil.checkCompile(buildCheck[1], buildCheck[2]);
-
-								if (builds) {
-									for (String className : project.getTestNames().keySet()) {
-										for (String testName : project.getTestNames().get(className)) {
-											System.out.println(className + " " + testName);
-											testResult = TestFlakyness.runSingleTest(project, className, testName, Config.SINGLE_TEST_RUNS, hasMaven, hasWrapper);
-
-											if (!testResult.getIfTestFailCompile()) {
-												testResults.add(testResult);
-											} 
-
-//											if (testResult.getFlakyness() == 1 || testResult.getFlakyness() == 0) {
-//												testResult = TestFlakyness.runMultipleTests(project, className, testName, Config.MULTI_TEST_RUNS, hasMaven, hasWrapper);
-//
-//												if (!testResult.getIfTestFailCompile()) {
-//													testResults.add(testResult);
-//												}
-//											}
-										}
-									}
-
-									if (!testResults.isEmpty()) {
-										project.setTestResults(testResults);
-									} else {
-										project.setSkipReason("tests did not compile");
-									}
-								} else {
-									project.setSkipReason("compilation failure");
-								}
-							} else {
-								project.setSkipReason("no maven or gradle files");
-							}
-						} else if (testClasses.isEmpty()) {
-							project.setSkipReason("no test classes found in diff");
-						} else if (!isCloned) {
-							project.setSkipReason("unsuccessful clone");
-						} else if (!isClass) {
-							project.setSkipReason("no test classes found after cloning");
-						} else if (testNames.isEmpty()) {
-							project.setSkipReason("no tests found in classes from diff");
-						}
 					} else {
 						JSONArray branchNames = getBranchNames(currentProject);
 
@@ -403,8 +353,7 @@ public class SearchGitHub {
 
 						HashMap<String, List<String>> allTestNames = new HashMap<>();
 						
-						ArrayList<String> classDotTests
-								= searchPattern(issueTitle, "[a-zA-Z]*(test)[a-zA-z]*\\.[a-zA-Z]*(test)[a-zA-z]*");
+						classDotTests = searchPattern(issueTitle, "[a-zA-Z]*(test)[a-zA-z]*\\.[a-zA-Z]*(test)[a-zA-z]*");
 
 						if (classDotTests.isEmpty()) {
 							classDotTests = searchPattern(issueBody, "[a-zA-Z]*(test)[a-zA-z]*\\.[a-zA-Z]*(test)[a-zA-z]*");
@@ -450,64 +399,68 @@ public class SearchGitHub {
 								}
 							}
 						}
+					}
+					
+					if (project.getTestNames() != null && !project.getTestNames().isEmpty()) {
+						project.setSkipReason(null);
+						boolean[] buildCheck = RepoUtil.checkWrapper();
+						System.out.println(buildCheck[0] + " has maven or gradle");
+						System.out.println(buildCheck[1] + " has maven");
+						System.out.println(buildCheck[2] + " has wrapper");
 						
-						if (project.getTestNames() != null && !project.getTestNames().isEmpty()) {
-							project.setSkipReason(null);
-							boolean[] buildCheck = RepoUtil.checkWrapper();
-							System.out.println(buildCheck[0] + " has maven or gradle");
-							System.out.println(buildCheck[1] + " has maven");
-							System.out.println(buildCheck[2] + " has wrapper");
-							
-							boolean hasMavenOrGradle = buildCheck[0];
-							boolean hasMaven = buildCheck[1];
-							boolean hasWrapper = buildCheck[2];
-							
-							if (hasMavenOrGradle) {
-								System.out.println("checking compile");
-								boolean builds = RepoUtil.checkCompile(buildCheck[1], buildCheck[2]);
-								
-								if (builds) {
-									for (String className : project.getTestNames().keySet()) {
-										for (String testName : project.getTestNames().get(className)) {
-											System.out.println(className + " " + testName);
-											testResult = TestFlakyness.runSingleTest(project, className, testName, Config.SINGLE_TEST_RUNS, hasMaven, hasWrapper);
+						boolean hasMavenOrGradle = buildCheck[0];
+						boolean hasMaven = buildCheck[1];
+						boolean hasWrapper = buildCheck[2];
+						
+						if (hasMavenOrGradle) {
+							System.out.println("checking compile");
+							boolean builds = RepoUtil.checkCompile(buildCheck[1], buildCheck[2]);
 
-											if (!testResult.getIfTestFailCompile()) {
-												testResults.add(testResult);
-											} 
+							if (builds) {
+								for (String className : project.getTestNames().keySet()) {
+									for (String testName : project.getTestNames().get(className)) {
+										System.out.println(className + " " + testName);
+										testResult = TestFlakyness.runSingleTest(project, className, testName, Config.SINGLE_TEST_RUNS, hasMaven, hasWrapper);
 
-//											if (testResult.getFlakyness() == 1 || testResult.getFlakyness() == 0) {
-//												testResult = TestFlakyness.runMultipleTests(project, className, testName, Config.MULTI_TEST_RUNS, hasMaven, hasWrapper);
+										if (!testResult.getIfTestFailCompile()) {
+											testResults.add(testResult);
+										} 
+
+//										if (testResult.getFlakyness() == 1 || testResult.getFlakyness() == 0) {
+//											testResult = TestFlakyness.runMultipleTests(project, className, testName, Config.MULTI_TEST_RUNS, hasMaven, hasWrapper);
 //
-//												if (!testResult.getIfTestFailCompile()) {
-//													testResults.add(testResult);
-//												}
+//											if (!testResult.getIfTestFailCompile()) {
+//												testResults.add(testResult);
 //											}
-										}
+//										}
 									}
+								}
 
-									if (!testResults.isEmpty()) {
-										project.setTestResults(testResults);
-									} else {
-										project.setSkipReason("tests did not compile");
-									}
+								if (!testResults.isEmpty()) {
+									project.setTestResults(testResults);
 								} else {
-									project.setSkipReason("compilation failure");
+									project.setSkipReason("tests did not compile");
 								}
 							} else {
-								project.setSkipReason("no maven or gradle files");
+								project.setSkipReason("compilation failure");
 							}
-						} else if (classDotTests.isEmpty()) {
-							project.setSkipReason("no classes and tests found in issue title or body");
-						} else if (!isCloned) {
-							project.setSkipReason("unsuccessful clone");
-						} else if (!isClass) {
-							project.setSkipReason("no test classes found after cloning");
-						} else if (!isTestClass) {
-							project.setSkipReason("classes found are not test classes");
-						} else if (!hasTestName) {
-							project.setSkipReason("test not found in test class");
+						} else {
+							project.setSkipReason("no maven or gradle files");
 						}
+					} else if (currentProject.has("pull_request") && testClasses.isEmpty()) {
+						project.setSkipReason("no test classes found in diff");
+					} else if (!currentProject.has("pull_request") && classDotTests.isEmpty()) {
+						project.setSkipReason("no classes and tests found in issue title or body");
+					} else if (!isCloned) {
+						project.setSkipReason("unsuccessful clone");
+					} else if (!isClass) {
+						project.setSkipReason("no test classes found after cloning");
+					} else if (currentProject.has("pull_request") && testNames.isEmpty()) {
+						project.setSkipReason("no tests found in classes from diff");
+					} else if (!currentProject.has("pull_request") && !isTestClass) {
+						project.setSkipReason("classes found are not test classes");
+					} else if (!currentProject.has("pull_request") && !hasTestName) {
+						project.setSkipReason("test not found in test class");
 					}
 					
 					System.out.println(project.getProjectURL());
