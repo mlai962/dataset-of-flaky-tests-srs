@@ -1,5 +1,6 @@
 package main.java.flakyTestSearch;
 
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Arrays;
@@ -16,7 +17,7 @@ public class Main {
 		Gson gson = new GsonBuilder().setPrettyPrinting().create();
 		
 		try {
-			gson.toJson(projects, new FileWriter(Config.TEMP_DIR));
+			gson.toJson(projects, new FileWriter(Config.TEMP_DIR + File.separator + "JSON"));
 		} catch (JsonIOException e) {
 			e.printStackTrace();
 		} catch (IOException e) {
@@ -40,27 +41,28 @@ public class Main {
 			csvWriter.append("\n");
 			
 			for (Project project : projects) {
-				for (TestResult testResult : project.getTestResults()) {
-					if (!testResult.getIfTestFailCompile()) {
-						boolean isOrderDependent = testResult.getIfOrderDependent();
-						String order = "false";
-						if (isOrderDependent) {
-							order = "true";
+				if (project.getTestResults() != null) {
+					for (TestResult testResult : project.getTestResults()) {
+						if (!testResult.getIfTestFailCompile()) {
+							boolean isOrderDependent = testResult.getIfOrderDependent();
+							String order = "false";
+							if (isOrderDependent) {
+								order = "true";
+							}
+							
+							String flaky = String.valueOf(testResult.getFlakyness());
+							
+							List<String> list = Arrays.asList(project.getProjectURL(), 
+									project.getCommitHash(), 
+									testResult.getClassName() + "." + testResult.getTestName(), 
+									project.getSkipReason(), 
+									flaky, 
+									order);
+							
+							csvWriter.append(String.join(",", list));
+							csvWriter.append("\n");
 						}
-						
-						String flaky = String.valueOf(testResult.getFlakyness());
-						
-						List<String> list = Arrays.asList(project.getProjectURL(), 
-								project.getCommitHash(), 
-								testResult.getClassName() + "." + testResult.getTestName(), 
-								project.getSkipReason(), 
-								flaky, 
-								order);
-						
-						csvWriter.append(String.join(",", list));
-						csvWriter.append("\n");
 					}
-					
 				}
 			}
 			

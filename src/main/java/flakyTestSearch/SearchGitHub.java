@@ -270,7 +270,7 @@ public class SearchGitHub {
 
 					String projectURL = currentProject.getString("repository_url");
 					
-					if (projectURL.contains("pulsar") || projectURL.contains("trino") || projectURL.contains("questdb")) {
+					if (projectURL.contains("pulsar") || projectURL.contains("trino") || projectURL.contains("questdb") || projectURL.contains("reactor-pool") || projectURL.contains("spring-data-gemfire")) {
 						continue;
 					}
 					
@@ -539,6 +539,8 @@ public class SearchGitHub {
 			}
 			
 			pageNum++;
+			
+			break;
 		} while (jsonResponse.getStatus() == 200);
 		
 		return projects;

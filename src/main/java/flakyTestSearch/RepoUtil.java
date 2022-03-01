@@ -75,7 +75,7 @@ public class RepoUtil {
 				
 				if (line.contains("BUILD SUCCESS")) {
 					buildSuccess = true;
-				} else if (line.contains("BUILD FAIL") || line.contains("fatal: could not parse object")) {
+				} else if (line.contains("BUILD FAIL") || line.contains("fatal: Could not parse object")) {
 					buildSuccess = false;
 				}
 			}
@@ -84,7 +84,7 @@ public class RepoUtil {
 			while ((errorLine = error.readLine()) != null) {
 				System.out.println(errorLine);
 				
-				if (errorLine.contains("fatal: could not parse object")) {
+				if (errorLine.contains("fatal: Could not parse object")) {
 					buildSuccess = false;
 				}
 			}
