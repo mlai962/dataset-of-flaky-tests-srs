@@ -15,10 +15,11 @@ import kong.unirest.json.JSONArray;
 import kong.unirest.json.JSONObject;
 
 public class SearchGitHub {
+	
 	public static HttpResponse<JsonNode> apiCall (String apiURL) {
 		HttpResponse<JsonNode> responseBody
 				= Unirest.get(apiURL)
-				.basicAuth("mlai962", "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")
+				.basicAuth(Config.githubUsername, Config.githubToken)
 				.header("accept", "application/vnd.github.v3+json")
 				.asJson();
 		
@@ -28,7 +29,7 @@ public class SearchGitHub {
 	public static HttpResponse<JsonNode> apiCall (String apiURL, Map<String, Object> queryMap) {
 		HttpResponse<JsonNode> responseBody
 				= Unirest.get(apiURL)
-				.basicAuth("mlai962", "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")
+				.basicAuth(Config.githubUsername, Config.githubToken)
 				.header("accept", "application/vnd.github.v3+json")
 				.queryString(queryMap)
 				.asJson();
@@ -124,7 +125,7 @@ public class SearchGitHub {
 	public static String getPullRequestDiff (JSONObject currentProject) {
 		String pullRequestDiff
 				= Unirest.get(getPullRequestURL(currentProject)) // Using the pull request URL to find its diff
-				.basicAuth("mlai962", "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")
+				.basicAuth(Config.githubUsername, Config.githubToken)
 				.header("Accept", "application/vnd.github.v3.diff") // Getting the diff
 				.asString()
 				.getBody();
@@ -270,6 +271,7 @@ public class SearchGitHub {
 
 					String projectURL = currentProject.getString("repository_url");
 					
+					// Projects that take a very long time cloning and end up not compiling
 					if (projectURL.contains("pulsar") || 
 							projectURL.contains("trino") || 
 							projectURL.contains("questdb") || 

@@ -9,4 +9,6 @@ public class Config {
 	public static int MAX_TESTS = 4; // Maximum number of tests to be used for test order dependency testing
 	public static int SINGLE_TEST_RUNS = 10; // The number of times to run each test
 	public static int MULTI_TEST_RUNS = 5; // The number of random test orders to run 
+	public static String githubUsername = "mlai962";
+	public static String githubToken = "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";
 }
